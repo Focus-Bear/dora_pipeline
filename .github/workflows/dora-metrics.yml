@@ -33,12 +33,12 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
-          python dora_pipeline.py   # this generates/updates metrics.db
+          python dora_pipeline.py   # this generates/updates dora.sqlite
 
       - name: Commit and push updated SQLite DB
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add metrics.db
+          git add dora.sqlite
           git commit -m "Update DORA metrics DB [skip ci]" || echo "No changes to commit"
           git push
