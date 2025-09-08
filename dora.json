@@ -10,8 +10,8 @@
             "sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
             "ref": "1189-unicaes-backend-task-tracking-via-asynctask-table",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "deployment_id": 2726948996,
@@ -23,8 +23,8 @@
             "sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
             "ref": "add-habit-icon",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "deployment_id": 2726949038,
@@ -36,8 +36,8 @@
             "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "ref": "feat/cross-check-usage-image-gemini",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "deployment_id": 2734439117,
@@ -49,8 +49,8 @@
             "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "ref": "add-habit-icon",
             "log_url": "https://dashboard.render.com/d/dpg-d1ps9fodl3ps7395pel0-a",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "deployment_id": 2734445708,
@@ -62,8 +62,8 @@
             "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
             "ref": "add-habit-icon",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         }
     ],
     "fact_pr": [
@@ -72,40 +72,40 @@
             "pr_merged_at_utc": "2025-09-02T12:08:38+00:00",
             "pr_merge_sha": "28f10eaf0abb1392821e6b85812cfc2855203451",
             "author": "cooi123",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "pr_number": 1338,
             "pr_merged_at_utc": "2025-09-01T09:01:27+00:00",
             "pr_merge_sha": "c58d0a2727f4c3126d905cdb28e8a71a7aa90471",
             "author": "quangvinhlee",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
-        },
-        {
-            "pr_number": 1344,
-            "pr_merged_at_utc": "2025-09-01T06:55:25+00:00",
-            "pr_merge_sha": "328b4278fa4b968e90c6859493e37812d1b76043",
-            "author": "quangvinhlee",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "pr_number": 1345,
             "pr_merged_at_utc": "2025-09-01T10:42:34+00:00",
             "pr_merge_sha": "7f0ea675ac7582e4ed2d138dcf142b81edc05b1b",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "pr_number": 1347,
             "pr_merged_at_utc": "2025-09-02T15:14:44+00:00",
             "pr_merge_sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
+        },
+        {
+            "pr_number": 1352,
+            "pr_merged_at_utc": "2025-09-08T05:55:36+00:00",
+            "pr_merge_sha": "7ba08e1cb44459f74e7f21334962abe6ac0a54a1",
+            "author": "quangvinhlee",
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         }
     ],
     "fact_incident": [
@@ -115,8 +115,8 @@
             "created_utc": "2025-07-02T14:00:01+00:00",
             "closed_utc": "2025-07-02T14:03:48+00:00",
             "duration_minutes": 3.783333333333333,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "incident_id": "6722449026",
@@ -124,8 +124,8 @@
             "created_utc": "2025-07-02T13:56:22+00:00",
             "closed_utc": "2025-07-02T13:57:25+00:00",
             "duration_minutes": 1.05,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "incident_id": "6722443962",
@@ -133,8 +133,8 @@
             "created_utc": "2025-07-02T13:53:15+00:00",
             "closed_utc": "2025-07-02T13:55:11+00:00",
             "duration_minutes": 1.9333333333333333,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "incident_id": "6722444072",
@@ -142,8 +142,8 @@
             "created_utc": "2025-07-02T13:53:52+00:00",
             "closed_utc": "2025-07-02T13:55:07+00:00",
             "duration_minutes": 1.25,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "incident_id": "6722446804",
@@ -151,8 +151,8 @@
             "created_utc": "2025-07-02T13:54:10+00:00",
             "closed_utc": "2025-07-02T13:54:54+00:00",
             "duration_minutes": 0.7333333333333333,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "incident_id": "6709697610",
@@ -160,8 +160,8 @@
             "created_utc": "2025-06-26T06:45:30+00:00",
             "closed_utc": "2025-06-26T06:45:30+00:00",
             "duration_minutes": 0.0,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         },
         {
             "incident_id": "6709693463",
@@ -169,31 +169,31 @@
             "created_utc": "2025-06-26T06:42:09+00:00",
             "closed_utc": "2025-06-26T06:44:01+00:00",
             "duration_minutes": 1.8666666666666667,
-            "source_fetched_at_utc": "2025-09-08T04:04:29.306655+00:00",
-            "etl_run_id": "run-1757304269"
+            "source_fetched_at_utc": "2025-09-08T07:32:26.072580+00:00",
+            "etl_run_id": "run-1757316746"
         }
     ],
     "derived_deploy_window": [
         {
-            "window_id": 5,
+            "window_id": 1,
             "prev_sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
             "curr_sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "deployed_at_utc": "2025-07-11T00:25:24+00:00"
         },
         {
-            "window_id": 6,
+            "window_id": 2,
             "prev_sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "curr_sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
             "deployed_at_utc": "2025-07-11T00:25:54+00:00"
         },
         {
-            "window_id": 7,
+            "window_id": 3,
             "prev_sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
             "curr_sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "deployed_at_utc": "2025-07-13T14:42:12+00:00"
         },
         {
-            "window_id": 8,
+            "window_id": 4,
             "prev_sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "curr_sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
             "deployed_at_utc": "2025-07-13T14:53:22+00:00"
@@ -215,13 +215,6 @@
             "window_curr_sha": null
         },
         {
-            "pr_number": 1344,
-            "first_deployed_at_utc": null,
-            "lt_hours": 0.0,
-            "window_prev_sha": null,
-            "window_curr_sha": null
-        },
-        {
             "pr_number": 1345,
             "first_deployed_at_utc": null,
             "lt_hours": 0.0,
@@ -230,6 +223,13 @@
         },
         {
             "pr_number": 1347,
+            "first_deployed_at_utc": null,
+            "lt_hours": 0.0,
+            "window_prev_sha": null,
+            "window_curr_sha": null
+        },
+        {
+            "pr_number": 1352,
             "first_deployed_at_utc": null,
             "lt_hours": 0.0,
             "window_prev_sha": null,
@@ -319,11 +319,19 @@
             "cfr": 0.0,
             "avg_lt_hours": 0.0,
             "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-08",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
         }
     ],
     "dora_events": [
         {
-            "event_id": 18,
+            "event_id": 1,
             "event_type": "deployment",
             "when_utc": "2025-07-08T02:30:27+00:00",
             "sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
@@ -334,7 +342,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 19,
+            "event_id": 2,
             "event_type": "deployment",
             "when_utc": "2025-07-11T00:25:54+00:00",
             "sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
@@ -345,7 +353,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 20,
+            "event_id": 3,
             "event_type": "deployment",
             "when_utc": "2025-07-11T00:25:24+00:00",
             "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
@@ -356,7 +364,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 21,
+            "event_id": 4,
             "event_type": "deployment",
             "when_utc": "2025-07-13T14:42:12+00:00",
             "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
@@ -367,7 +375,7 @@
             "state": "success"
         },
         {
-            "event_id": 22,
+            "event_id": 5,
             "event_type": "deployment",
             "when_utc": "2025-07-13T14:53:22+00:00",
             "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
@@ -378,7 +386,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 23,
+            "event_id": 6,
             "event_type": "pr_merge",
             "when_utc": "2025-09-02T12:08:38+00:00",
             "sha": "28f10eaf0abb1392821e6b85812cfc2855203451",
@@ -389,7 +397,7 @@
             "state": null
         },
         {
-            "event_id": 24,
+            "event_id": 7,
             "event_type": "pr_merge",
             "when_utc": "2025-09-01T09:01:27+00:00",
             "sha": "c58d0a2727f4c3126d905cdb28e8a71a7aa90471",
@@ -400,18 +408,7 @@
             "state": null
         },
         {
-            "event_id": 25,
-            "event_type": "pr_merge",
-            "when_utc": "2025-09-01T06:55:25+00:00",
-            "sha": "328b4278fa4b968e90c6859493e37812d1b76043",
-            "pr_number": 1344,
-            "deployment_id": null,
-            "incident_id": null,
-            "title": null,
-            "state": null
-        },
-        {
-            "event_id": 26,
+            "event_id": 8,
             "event_type": "pr_merge",
             "when_utc": "2025-09-01T10:42:34+00:00",
             "sha": "7f0ea675ac7582e4ed2d138dcf142b81edc05b1b",
@@ -422,7 +419,7 @@
             "state": null
         },
         {
-            "event_id": 27,
+            "event_id": 9,
             "event_type": "pr_merge",
             "when_utc": "2025-09-02T15:14:44+00:00",
             "sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
@@ -433,7 +430,18 @@
             "state": null
         },
         {
-            "event_id": 28,
+            "event_id": 10,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-08T05:55:36+00:00",
+            "sha": "7ba08e1cb44459f74e7f21334962abe6ac0a54a1",
+            "pr_number": 1352,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 11,
             "event_type": "incident",
             "when_utc": "2025-07-02T14:00:01+00:00",
             "sha": null,
@@ -444,7 +452,7 @@
             "state": null
         },
         {
-            "event_id": 29,
+            "event_id": 12,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:56:22+00:00",
             "sha": null,
@@ -455,7 +463,7 @@
             "state": null
         },
         {
-            "event_id": 30,
+            "event_id": 13,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:53:15+00:00",
             "sha": null,
@@ -466,7 +474,7 @@
             "state": null
         },
         {
-            "event_id": 31,
+            "event_id": 14,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:53:52+00:00",
             "sha": null,
@@ -477,7 +485,7 @@
             "state": null
         },
         {
-            "event_id": 32,
+            "event_id": 15,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:54:10+00:00",
             "sha": null,
@@ -488,7 +496,7 @@
             "state": null
         },
         {
-            "event_id": 33,
+            "event_id": 16,
             "event_type": "incident",
             "when_utc": "2025-06-26T06:45:30+00:00",
             "sha": null,
@@ -499,7 +507,7 @@
             "state": null
         },
         {
-            "event_id": 34,
+            "event_id": 17,
             "event_type": "incident",
             "when_utc": "2025-06-26T06:42:09+00:00",
             "sha": null,
