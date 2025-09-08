@@ -1,0 +1,513 @@
+{
+    "fact_deployment": [
+        {
+            "deployment_id": 2712313928,
+            "environment": "",
+            "created_at_utc": "2025-07-08T02:18:49+00:00",
+            "finished_at_utc": "2025-07-08T02:30:27+00:00",
+            "state": "inactive",
+            "actor": "jeznag",
+            "sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
+            "ref": "1189-unicaes-backend-task-tracking-via-asynctask-table",
+            "log_url": "",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "deployment_id": 2726948996,
+            "environment": "",
+            "created_at_utc": "2025-07-11T00:19:01+00:00",
+            "finished_at_utc": "2025-07-11T00:25:54+00:00",
+            "state": "inactive",
+            "actor": "jeznag",
+            "sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
+            "ref": "add-habit-icon",
+            "log_url": "",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "deployment_id": 2726949038,
+            "environment": "",
+            "created_at_utc": "2025-07-11T00:19:02+00:00",
+            "finished_at_utc": "2025-07-11T00:25:24+00:00",
+            "state": "inactive",
+            "actor": "jeznag",
+            "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
+            "ref": "feat/cross-check-usage-image-gemini",
+            "log_url": "",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "deployment_id": 2734439117,
+            "environment": "",
+            "created_at_utc": "2025-07-13T14:37:52+00:00",
+            "finished_at_utc": "2025-07-13T14:42:12+00:00",
+            "state": "success",
+            "actor": "jeznag",
+            "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
+            "ref": "add-habit-icon",
+            "log_url": "https://dashboard.render.com/d/dpg-d1ps9fodl3ps7395pel0-a",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "deployment_id": 2734445708,
+            "environment": "",
+            "created_at_utc": "2025-07-13T14:42:17+00:00",
+            "finished_at_utc": "2025-07-13T14:53:22+00:00",
+            "state": "inactive",
+            "actor": "jeznag",
+            "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "ref": "add-habit-icon",
+            "log_url": "",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        }
+    ],
+    "fact_pr": [
+        {
+            "pr_number": 1313,
+            "pr_merged_at_utc": "2025-09-02T12:08:38+00:00",
+            "pr_merge_sha": "28f10eaf0abb1392821e6b85812cfc2855203451",
+            "author": "cooi123",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "pr_number": 1338,
+            "pr_merged_at_utc": "2025-09-01T09:01:27+00:00",
+            "pr_merge_sha": "c58d0a2727f4c3126d905cdb28e8a71a7aa90471",
+            "author": "quangvinhlee",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "pr_number": 1344,
+            "pr_merged_at_utc": "2025-09-01T06:55:25+00:00",
+            "pr_merge_sha": "328b4278fa4b968e90c6859493e37812d1b76043",
+            "author": "quangvinhlee",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "pr_number": 1345,
+            "pr_merged_at_utc": "2025-09-01T10:42:34+00:00",
+            "pr_merge_sha": "7f0ea675ac7582e4ed2d138dcf142b81edc05b1b",
+            "author": "copypasteonly",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "pr_number": 1347,
+            "pr_merged_at_utc": "2025-09-02T15:14:44+00:00",
+            "pr_merge_sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
+            "author": "copypasteonly",
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        }
+    ],
+    "fact_incident": [
+        {
+            "incident_id": "6722462027",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "created_utc": "2025-07-02T14:00:01+00:00",
+            "closed_utc": "2025-07-02T14:03:48+00:00",
+            "duration_minutes": 3.783333333333333,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "incident_id": "6722449026",
+            "title": "FetchError: The request failed and the interceptors did not return an alternative response",
+            "created_utc": "2025-07-02T13:56:22+00:00",
+            "closed_utc": "2025-07-02T13:57:25+00:00",
+            "duration_minutes": 1.05,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "incident_id": "6722443962",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "created_utc": "2025-07-02T13:53:15+00:00",
+            "closed_utc": "2025-07-02T13:55:11+00:00",
+            "duration_minutes": 1.9333333333333333,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "incident_id": "6722444072",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "created_utc": "2025-07-02T13:53:52+00:00",
+            "closed_utc": "2025-07-02T13:55:07+00:00",
+            "duration_minutes": 1.25,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "incident_id": "6722446804",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "created_utc": "2025-07-02T13:54:10+00:00",
+            "closed_utc": "2025-07-02T13:54:54+00:00",
+            "duration_minutes": 0.7333333333333333,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "incident_id": "6709697610",
+            "title": "Error: Last test",
+            "created_utc": "2025-06-26T06:45:30+00:00",
+            "closed_utc": "2025-06-26T06:45:30+00:00",
+            "duration_minutes": 0.0,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        },
+        {
+            "incident_id": "6709693463",
+            "title": "Error: Test error - this should appear in Sentry",
+            "created_utc": "2025-06-26T06:42:09+00:00",
+            "closed_utc": "2025-06-26T06:44:01+00:00",
+            "duration_minutes": 1.8666666666666667,
+            "source_fetched_at_utc": "2025-09-08T03:59:13.376254+00:00",
+            "etl_run_id": "run-1757303953"
+        }
+    ],
+    "derived_deploy_window": [
+        {
+            "window_id": 1,
+            "prev_sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
+            "curr_sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
+            "deployed_at_utc": "2025-07-11T00:25:24+00:00"
+        },
+        {
+            "window_id": 2,
+            "prev_sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
+            "curr_sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
+            "deployed_at_utc": "2025-07-11T00:25:54+00:00"
+        },
+        {
+            "window_id": 3,
+            "prev_sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
+            "curr_sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
+            "deployed_at_utc": "2025-07-13T14:42:12+00:00"
+        },
+        {
+            "window_id": 4,
+            "prev_sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
+            "curr_sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "deployed_at_utc": "2025-07-13T14:53:22+00:00"
+        }
+    ],
+    "derived_pr_lead_time": [
+        {
+            "pr_number": 1313,
+            "first_deployed_at_utc": null,
+            "lt_hours": 0.0,
+            "window_prev_sha": null,
+            "window_curr_sha": null
+        },
+        {
+            "pr_number": 1338,
+            "first_deployed_at_utc": null,
+            "lt_hours": 0.0,
+            "window_prev_sha": null,
+            "window_curr_sha": null
+        },
+        {
+            "pr_number": 1344,
+            "first_deployed_at_utc": null,
+            "lt_hours": 0.0,
+            "window_prev_sha": null,
+            "window_curr_sha": null
+        },
+        {
+            "pr_number": 1345,
+            "first_deployed_at_utc": null,
+            "lt_hours": 0.0,
+            "window_prev_sha": null,
+            "window_curr_sha": null
+        },
+        {
+            "pr_number": 1347,
+            "first_deployed_at_utc": null,
+            "lt_hours": 0.0,
+            "window_prev_sha": null,
+            "window_curr_sha": null
+        }
+    ],
+    "derived_cfr_per_deploy": [
+        {
+            "deployment_id": 2712313928,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 2726948996,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 2726949038,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 2734439117,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 2734445708,
+            "failed": 0,
+            "reason": "none"
+        }
+    ],
+    "dora_summary_daily": [
+        {
+            "date": "2025-06-26",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.9333333333333333
+        },
+        {
+            "date": "2025-07-02",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 1.75
+        },
+        {
+            "date": "2025-07-08",
+            "deploys": 1,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-07-11",
+            "deploys": 2,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-07-13",
+            "deploys": 2,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-01",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-02",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        }
+    ],
+    "dora_events": [
+        {
+            "event_id": 1,
+            "event_type": "deployment",
+            "when_utc": "2025-07-08T02:30:27+00:00",
+            "sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
+            "pr_number": null,
+            "deployment_id": 2712313928,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 2,
+            "event_type": "deployment",
+            "when_utc": "2025-07-11T00:25:54+00:00",
+            "sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
+            "pr_number": null,
+            "deployment_id": 2726948996,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 3,
+            "event_type": "deployment",
+            "when_utc": "2025-07-11T00:25:24+00:00",
+            "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
+            "pr_number": null,
+            "deployment_id": 2726949038,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 4,
+            "event_type": "deployment",
+            "when_utc": "2025-07-13T14:42:12+00:00",
+            "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
+            "pr_number": null,
+            "deployment_id": 2734439117,
+            "incident_id": null,
+            "title": null,
+            "state": "success"
+        },
+        {
+            "event_id": 5,
+            "event_type": "deployment",
+            "when_utc": "2025-07-13T14:53:22+00:00",
+            "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "pr_number": null,
+            "deployment_id": 2734445708,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 6,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-02T12:08:38+00:00",
+            "sha": "28f10eaf0abb1392821e6b85812cfc2855203451",
+            "pr_number": 1313,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 7,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-01T09:01:27+00:00",
+            "sha": "c58d0a2727f4c3126d905cdb28e8a71a7aa90471",
+            "pr_number": 1338,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 8,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-01T06:55:25+00:00",
+            "sha": "328b4278fa4b968e90c6859493e37812d1b76043",
+            "pr_number": 1344,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 9,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-01T10:42:34+00:00",
+            "sha": "7f0ea675ac7582e4ed2d138dcf142b81edc05b1b",
+            "pr_number": 1345,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 10,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-02T15:14:44+00:00",
+            "sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
+            "pr_number": 1347,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 11,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T14:00:01+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722462027",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "state": null
+        },
+        {
+            "event_id": 12,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:56:22+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722449026",
+            "title": "FetchError: The request failed and the interceptors did not return an alternative response",
+            "state": null
+        },
+        {
+            "event_id": 13,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:53:15+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722443962",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "state": null
+        },
+        {
+            "event_id": 14,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:53:52+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722444072",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "state": null
+        },
+        {
+            "event_id": 15,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:54:10+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722446804",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "state": null
+        },
+        {
+            "event_id": 16,
+            "event_type": "incident",
+            "when_utc": "2025-06-26T06:45:30+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6709697610",
+            "title": "Error: Last test",
+            "state": null
+        },
+        {
+            "event_id": 17,
+            "event_type": "incident",
+            "when_utc": "2025-06-26T06:42:09+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6709693463",
+            "title": "Error: Test error - this should appear in Sentry",
+            "state": null
+        }
+    ]
+}

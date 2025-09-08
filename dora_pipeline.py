@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 
 import requests
+import json
 
 # -----------------------------
 # Config & Globals
@@ -82,10 +83,8 @@ def utc_from_iso(s: Optional[str]) -> Optional[datetime]:
     except Exception:
         return None
 
-
 def iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.astimezone(UTC).isoformat() if dt else None
-
 
 def sleep_until(ts_epoch: int):
     now = int(time.time())
@@ -93,7 +92,6 @@ def sleep_until(ts_epoch: int):
     if wait > 0:
         log.warning("Rate-limited. Sleeping %ss (until %s)", wait, datetime.fromtimestamp(ts_epoch, UTC))
         time.sleep(wait)
-
 
 def _request_with_backoff(url: str, headers: Dict[str, str], params: Optional[Dict[str, Any]] = None) -> requests.Response:
     """HTTP GET with basic rate-limit handling and backoff."""
@@ -121,13 +119,11 @@ def _request_with_backoff(url: str, headers: Dict[str, str], params: Optional[Di
         r.raise_for_status()
         return r
 
-
 def gh_get(url: str, params: Optional[Dict[str, Any]] = None) -> Any:
     if not GH_TOKEN:
         raise RuntimeError("GH_TOKEN is required")
     r = _request_with_backoff(url, HEADERS_GH, params=params)
     return r.json()
-
 
 def gh_get_paged(url: str, params: Optional[Dict[str, Any]] = None, cap_pages: int = 10) -> List[Any]:
     out: List[Any] = []
@@ -145,14 +141,12 @@ def gh_get_paged(url: str, params: Optional[Dict[str, Any]] = None, cap_pages: i
         page += 1
     return out
 
-
 def sentry_get(path: str, params: Optional[Dict[str, Any]] = None) -> Any:
     if not HEADERS_SENTRY:
         return None
     url = f"{BASE_SENTRY}{path}"
     r = _request_with_backoff(url, HEADERS_SENTRY, params=params)
     return r.json()
-
 
 # -----------------------------
 # DB setup
@@ -163,7 +157,6 @@ def db_connect() -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
     return conn
-
 
 def init_schema(conn: sqlite3.Connection):
     cur = conn.cursor()
@@ -252,7 +245,6 @@ def init_schema(conn: sqlite3.Connection):
     )
     conn.commit()
 
-
 # -----------------------------
 # 1) Ingest GitHub Deployments
 # -----------------------------
@@ -313,7 +305,6 @@ def ingest_github_deployments(conn: sqlite3.Connection, etl_run_id: str) -> int:
     log.info("Ingested %d GitHub deployments", ingested)
     return ingested
 
-
 # -----------------------------
 # 2) Ingest GitHub PRs (merged)
 # -----------------------------
@@ -358,7 +349,6 @@ def ingest_github_prs(conn: sqlite3.Connection, etl_run_id: str) -> int:
     log.info("Ingested %d GitHub PRs (merged)", ingested)
     return ingested
 
-
 # -----------------------------
 # 3) Build Deployment Windows & Map PRs (Lead Time)
 # -----------------------------
@@ -375,7 +365,6 @@ def gh_compare_commits(base_sha: str, head_sha: str) -> List[str]:
     except requests.HTTPError as e:
         log.warning("compare %s..%s failed: %s", base_sha, head_sha, e)
         return []
-
 
 def build_deploy_windows_and_lt(conn: sqlite3.Connection) -> Tuple[int, int]:
     """
@@ -457,7 +446,6 @@ def build_deploy_windows_and_lt(conn: sqlite3.Connection) -> Tuple[int, int]:
     log.info("Built %d deployment windows, mapped LT for %d PRs", len(windows), mapped)
     return len(windows), mapped
 
-
 # -----------------------------
 # 4) CFR (Sentry-first, GH fallback)
 # -----------------------------
@@ -488,7 +476,6 @@ def sentry_recent_releases_production() -> List[Dict[str, Any]]:
     out.sort(key=lambda x: x["deployed_at"])
     return out
 
-
 def sentry_incidents_in_window(start: datetime, end: datetime) -> List[Dict[str, Any]]:
     if not HEADERS_SENTRY:
         return []
@@ -502,7 +489,6 @@ def sentry_incidents_in_window(start: datetime, end: datetime) -> List[Dict[str,
         if created and start <= created <= end:
             found.append(inc)
     return found
-
 
 def sentry_issues_in_window(start: datetime, end: datetime, version: Optional[str] = None) -> List[Dict[str, Any]]:
     if not HEADERS_SENTRY:
@@ -520,7 +506,6 @@ def sentry_issues_in_window(start: datetime, end: datetime, version: Optional[st
     except Exception:
         issues = []
     return issues
-
 
 def compute_cfr_per_deploy(conn: sqlite3.Connection) -> int:
     """
@@ -583,7 +568,6 @@ def compute_cfr_per_deploy(conn: sqlite3.Connection) -> int:
     log.info("Classified CFR for %d deployments", classified)
     return classified
 
-
 # -----------------------------
 # 5) MTTR from Sentry incidents
 # -----------------------------
@@ -627,7 +611,6 @@ def ingest_sentry_incidents(conn: sqlite3.Connection, etl_run_id: str) -> int:
     conn.commit()
     log.info("Ingested %d Sentry incidents", ingested)
     return ingested
-
 
 # -----------------------------
 # 6) Daily summary + unified events stream
@@ -718,7 +701,6 @@ def rebuild_daily_summary(conn: sqlite3.Connection):
     conn.commit()
     log.info("Rebuilt dora_summary_daily for %d days", len(all_days))
 
-
 def backfill_events(conn: sqlite3.Connection):
     cur = conn.cursor()
     cur.execute("DELETE FROM dora_events")
@@ -750,6 +732,29 @@ def backfill_events(conn: sqlite3.Connection):
     conn.commit()
     log.info("Backfilled dora_events")
 
+def export_all_to_json(conn: sqlite3.Connection, output_file: str = "dora.json"):
+    tables = [
+        "fact_deployment",
+        "fact_pr",
+        "fact_incident",
+        "derived_deploy_window",
+        "derived_pr_lead_time",
+        "derived_cfr_per_deploy",
+        "dora_summary_daily",
+        "dora_events",
+    ]
+    
+    all_data = {}
+    for table in tables:
+        cur = conn.cursor()
+        cur.execute(f"SELECT * FROM {table}")
+        rows = cur.fetchall()
+        columns = [desc[0] for desc in cur.description]
+        all_data[table] = [dict(zip(columns, row)) for row in rows]
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(all_data, f, indent=4)
+    log.info("Exported all tables to JSON: %s", output_file)
 
 # -----------------------------
 # Main
@@ -794,6 +799,9 @@ def main():
         backfill_events(conn)
 
         log.info("✅ Done. SQLite file -> %s", DB_PATH)
+
+        log.info("Exporting all tables to JSON…")
+        export_all_to_json(conn, output_file="dora.json")
     finally:
         conn.close()
 
