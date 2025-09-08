@@ -33,7 +33,7 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
-          python dora_metrics.py   # this generates/updates metrics.db
+          python dora_pipeline.py   # this generates/updates metrics.db
 
       - name: Commit and push updated SQLite DB
         run: |
