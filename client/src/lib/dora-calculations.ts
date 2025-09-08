@@ -1,4 +1,4 @@
-import doraData from "../assets/dora_1757307781100.json";
+import doraData from "./../../../dora.json";
 
 export interface DoraData {
   fact_deployment: Array<{
