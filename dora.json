@@ -36,8 +36,8 @@
             "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "ref": "feat/cross-check-usage-image-gemini",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "deployment_id": 2734439117,
@@ -49,8 +49,8 @@
             "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "ref": "add-habit-icon",
             "log_url": "https://dashboard.render.com/d/dpg-d1ps9fodl3ps7395pel0-a",
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "deployment_id": 2734445708,
@@ -62,8 +62,8 @@
             "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
             "ref": "add-habit-icon",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         }
     ],
     "fact_pr": [
@@ -88,24 +88,24 @@
             "pr_merged_at_utc": "2025-09-02T15:14:44+00:00",
             "pr_merge_sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "pr_number": 1352,
             "pr_merged_at_utc": "2025-09-08T05:55:36+00:00",
             "pr_merge_sha": "7ba08e1cb44459f74e7f21334962abe6ac0a54a1",
             "author": "quangvinhlee",
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "pr_number": 1355,
             "pr_merged_at_utc": "2025-09-08T11:30:04+00:00",
             "pr_merge_sha": "b8b02a3cbfd3c82265f2e4dc5ed6e55509145bad",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         }
     ],
     "fact_incident": [
@@ -115,8 +115,8 @@
             "created_utc": "2025-07-02T14:00:01+00:00",
             "closed_utc": "2025-07-02T14:03:48+00:00",
             "duration_minutes": 3.783333333333333,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "incident_id": "6722449026",
@@ -124,8 +124,8 @@
             "created_utc": "2025-07-02T13:56:22+00:00",
             "closed_utc": "2025-07-02T13:57:25+00:00",
             "duration_minutes": 1.05,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "incident_id": "6722443962",
@@ -133,8 +133,8 @@
             "created_utc": "2025-07-02T13:53:15+00:00",
             "closed_utc": "2025-07-02T13:55:11+00:00",
             "duration_minutes": 1.9333333333333333,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "incident_id": "6722444072",
@@ -142,8 +142,8 @@
             "created_utc": "2025-07-02T13:53:52+00:00",
             "closed_utc": "2025-07-02T13:55:07+00:00",
             "duration_minutes": 1.25,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "incident_id": "6722446804",
@@ -151,8 +151,8 @@
             "created_utc": "2025-07-02T13:54:10+00:00",
             "closed_utc": "2025-07-02T13:54:54+00:00",
             "duration_minutes": 0.7333333333333333,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "incident_id": "6709697610",
@@ -160,8 +160,8 @@
             "created_utc": "2025-06-26T06:45:30+00:00",
             "closed_utc": "2025-06-26T06:45:30+00:00",
             "duration_minutes": 0.0,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         },
         {
             "incident_id": "6709693463",
@@ -169,31 +169,31 @@
             "created_utc": "2025-06-26T06:42:09+00:00",
             "closed_utc": "2025-06-26T06:44:01+00:00",
             "duration_minutes": 1.8666666666666667,
-            "source_fetched_at_utc": "2025-09-08T12:21:13.920919+00:00",
-            "etl_run_id": "run-1757334073"
+            "source_fetched_at_utc": "2025-09-08T12:25:06.050093+00:00",
+            "etl_run_id": "run-1757334306"
         }
     ],
     "derived_deploy_window": [
         {
-            "window_id": 1,
+            "window_id": 5,
             "prev_sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
             "curr_sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "deployed_at_utc": "2025-07-11T00:25:24+00:00"
         },
         {
-            "window_id": 2,
+            "window_id": 6,
             "prev_sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "curr_sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
             "deployed_at_utc": "2025-07-11T00:25:54+00:00"
         },
         {
-            "window_id": 3,
+            "window_id": 7,
             "prev_sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
             "curr_sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "deployed_at_utc": "2025-07-13T14:42:12+00:00"
         },
         {
-            "window_id": 4,
+            "window_id": 8,
             "prev_sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "curr_sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
             "deployed_at_utc": "2025-07-13T14:53:22+00:00"
@@ -331,7 +331,7 @@
     ],
     "dora_events": [
         {
-            "event_id": 1,
+            "event_id": 18,
             "event_type": "deployment",
             "when_utc": "2025-07-08T02:30:27+00:00",
             "sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
@@ -342,7 +342,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 2,
+            "event_id": 19,
             "event_type": "deployment",
             "when_utc": "2025-07-11T00:25:54+00:00",
             "sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
@@ -353,7 +353,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 3,
+            "event_id": 20,
             "event_type": "deployment",
             "when_utc": "2025-07-11T00:25:24+00:00",
             "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
@@ -364,7 +364,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 4,
+            "event_id": 21,
             "event_type": "deployment",
             "when_utc": "2025-07-13T14:42:12+00:00",
             "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
@@ -375,7 +375,7 @@
             "state": "success"
         },
         {
-            "event_id": 5,
+            "event_id": 22,
             "event_type": "deployment",
             "when_utc": "2025-07-13T14:53:22+00:00",
             "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
@@ -386,7 +386,7 @@
             "state": "inactive"
         },
         {
-            "event_id": 6,
+            "event_id": 23,
             "event_type": "pr_merge",
             "when_utc": "2025-09-02T12:08:38+00:00",
             "sha": "28f10eaf0abb1392821e6b85812cfc2855203451",
@@ -397,7 +397,7 @@
             "state": null
         },
         {
-            "event_id": 7,
+            "event_id": 24,
             "event_type": "pr_merge",
             "when_utc": "2025-09-01T10:42:34+00:00",
             "sha": "7f0ea675ac7582e4ed2d138dcf142b81edc05b1b",
@@ -408,7 +408,7 @@
             "state": null
         },
         {
-            "event_id": 8,
+            "event_id": 25,
             "event_type": "pr_merge",
             "when_utc": "2025-09-02T15:14:44+00:00",
             "sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
@@ -419,7 +419,7 @@
             "state": null
         },
         {
-            "event_id": 9,
+            "event_id": 26,
             "event_type": "pr_merge",
             "when_utc": "2025-09-08T05:55:36+00:00",
             "sha": "7ba08e1cb44459f74e7f21334962abe6ac0a54a1",
@@ -430,7 +430,7 @@
             "state": null
         },
         {
-            "event_id": 10,
+            "event_id": 27,
             "event_type": "pr_merge",
             "when_utc": "2025-09-08T11:30:04+00:00",
             "sha": "b8b02a3cbfd3c82265f2e4dc5ed6e55509145bad",
@@ -441,7 +441,7 @@
             "state": null
         },
         {
-            "event_id": 11,
+            "event_id": 28,
             "event_type": "incident",
             "when_utc": "2025-07-02T14:00:01+00:00",
             "sha": null,
@@ -452,7 +452,7 @@
             "state": null
         },
         {
-            "event_id": 12,
+            "event_id": 29,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:56:22+00:00",
             "sha": null,
@@ -463,7 +463,7 @@
             "state": null
         },
         {
-            "event_id": 13,
+            "event_id": 30,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:53:15+00:00",
             "sha": null,
@@ -474,7 +474,7 @@
             "state": null
         },
         {
-            "event_id": 14,
+            "event_id": 31,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:53:52+00:00",
             "sha": null,
@@ -485,7 +485,7 @@
             "state": null
         },
         {
-            "event_id": 15,
+            "event_id": 32,
             "event_type": "incident",
             "when_utc": "2025-07-02T13:54:10+00:00",
             "sha": null,
@@ -496,7 +496,7 @@
             "state": null
         },
         {
-            "event_id": 16,
+            "event_id": 33,
             "event_type": "incident",
             "when_utc": "2025-06-26T06:45:30+00:00",
             "sha": null,
@@ -507,7 +507,7 @@
             "state": null
         },
         {
-            "event_id": 17,
+            "event_id": 34,
             "event_type": "incident",
             "when_utc": "2025-06-26T06:42:09+00:00",
             "sha": null,
