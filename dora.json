@@ -10,8 +10,8 @@
             "sha": "c62eaf8a67d66ec41796974762dec3aeaad53069",
             "ref": "1189-unicaes-backend-task-tracking-via-asynctask-table",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "deployment_id": 2726948996,
@@ -23,8 +23,8 @@
             "sha": "dd209c59e3d0306726350e517ddcdb51fdeeb449",
             "ref": "add-habit-icon",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "deployment_id": 2726949038,
@@ -36,8 +36,8 @@
             "sha": "b1d33df90988375701ced8622a2ba1c55bacea6a",
             "ref": "feat/cross-check-usage-image-gemini",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "deployment_id": 2734439117,
@@ -49,8 +49,8 @@
             "sha": "7d84fc3a05a24b44f88b01d50479a6ea87ab8fc7",
             "ref": "add-habit-icon",
             "log_url": "https://dashboard.render.com/d/dpg-d1ps9fodl3ps7395pel0-a",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "deployment_id": 2734445708,
@@ -62,8 +62,8 @@
             "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
             "ref": "add-habit-icon",
             "log_url": "",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         }
     ],
     "fact_pr": [
@@ -72,40 +72,40 @@
             "pr_merged_at_utc": "2025-09-02T12:08:38+00:00",
             "pr_merge_sha": "28f10eaf0abb1392821e6b85812cfc2855203451",
             "author": "cooi123",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "pr_number": 1345,
             "pr_merged_at_utc": "2025-09-01T10:42:34+00:00",
             "pr_merge_sha": "7f0ea675ac7582e4ed2d138dcf142b81edc05b1b",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "pr_number": 1347,
             "pr_merged_at_utc": "2025-09-02T15:14:44+00:00",
             "pr_merge_sha": "3bef0adecde00f7050e89314e9835ae2f95d6d29",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "pr_number": 1352,
             "pr_merged_at_utc": "2025-09-08T05:55:36+00:00",
             "pr_merge_sha": "7ba08e1cb44459f74e7f21334962abe6ac0a54a1",
             "author": "quangvinhlee",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "pr_number": 1355,
             "pr_merged_at_utc": "2025-09-08T11:30:04+00:00",
             "pr_merge_sha": "b8b02a3cbfd3c82265f2e4dc5ed6e55509145bad",
             "author": "copypasteonly",
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         }
     ],
     "fact_incident": [
@@ -115,8 +115,8 @@
             "created_utc": "2025-07-02T14:00:01+00:00",
             "closed_utc": "2025-07-02T14:03:48+00:00",
             "duration_minutes": 3.783333333333333,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "incident_id": "6722449026",
@@ -124,8 +124,8 @@
             "created_utc": "2025-07-02T13:56:22+00:00",
             "closed_utc": "2025-07-02T13:57:25+00:00",
             "duration_minutes": 1.05,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "incident_id": "6722443962",
@@ -133,8 +133,8 @@
             "created_utc": "2025-07-02T13:53:15+00:00",
             "closed_utc": "2025-07-02T13:55:11+00:00",
             "duration_minutes": 1.9333333333333333,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "incident_id": "6722444072",
@@ -142,8 +142,8 @@
             "created_utc": "2025-07-02T13:53:52+00:00",
             "closed_utc": "2025-07-02T13:55:07+00:00",
             "duration_minutes": 1.25,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "incident_id": "6722446804",
@@ -151,8 +151,8 @@
             "created_utc": "2025-07-02T13:54:10+00:00",
             "closed_utc": "2025-07-02T13:54:54+00:00",
             "duration_minutes": 0.7333333333333333,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "incident_id": "6709697610",
@@ -160,8 +160,8 @@
             "created_utc": "2025-06-26T06:45:30+00:00",
             "closed_utc": "2025-06-26T06:45:30+00:00",
             "duration_minutes": 0.0,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         },
         {
             "incident_id": "6709693463",
@@ -169,8 +169,8 @@
             "created_utc": "2025-06-26T06:42:09+00:00",
             "closed_utc": "2025-06-26T06:44:01+00:00",
             "duration_minutes": 1.8666666666666667,
-            "source_fetched_at_utc": "2025-09-08T11:33:35.782107+00:00",
-            "etl_run_id": "run-1757331215"
+            "source_fetched_at_utc": "2025-09-08T11:52:36.846607+00:00",
+            "etl_run_id": "run-1757332356"
         }
     ],
     "derived_deploy_window": [
