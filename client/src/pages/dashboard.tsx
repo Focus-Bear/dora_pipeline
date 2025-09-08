@@ -94,7 +94,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground" data-testid="dashboard-title">
-                DORA Metrics Dashboard
+                Focus Bear - DORA
               </h1>
               <p className="text-muted-foreground">DevOps performance insights and analytics</p>
             </div>
