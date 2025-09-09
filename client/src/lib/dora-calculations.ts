@@ -230,7 +230,7 @@ export function calculateDoraMetrics(filteredData: FilteredData, originalData: D
       avgDeploymentFreq = validData.reduce((sum, d) => sum + d.deploys, 0) / validData.length;
       avgLeadTime = validData.reduce((sum, d) => sum + d.avg_lt_hours, 0) / validData.length;
       avgCFR = (validData.reduce((sum, d) => sum + d.cfr, 0) / validData.length) * 100;
-      avgMTTR = validData.reduce((sum, d) => sum + (d.mttr_min / 60), 0); // Total time in hours, not average
+      avgMTTR = summary.reduce((sum, d) => sum + (d.mttr_min / 60), 0); // Total time in hours, not average
     }
   } else {
     // Calculate from raw deployment data

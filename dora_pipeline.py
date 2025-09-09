@@ -673,7 +673,7 @@ def rebuild_daily_summary(conn: sqlite3.Connection):
     cur.execute(
         """
         WITH mt AS (
-          SELECT date(substr(created_utc,1,10)) AS day, AVG(duration_minutes) AS mttr
+          SELECT date(substr(created_utc,1,10)) AS day, SUM(duration_minutes) AS mttr
           FROM fact_incident
           GROUP BY 1
         )
