@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Usage:
-  python dora_pipeline.py
-
-Dependencies:
-  pip install requests
-"""
 from __future__ import annotations
 
 import os
@@ -21,10 +12,6 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 import json
-
-# -----------------------------
-# Config & Globals
-# -----------------------------
 
 UTC = timezone.utc
 NOW_UTC = datetime.now(UTC)
@@ -42,7 +29,7 @@ SENTRY_TOKEN   = os.getenv("SENTRY_TOKEN") or ""
 SENTRY_ORG     = os.getenv("SENTRY_ORG") or ""
 SENTRY_PROJECT = os.getenv("SENTRY_PROJECT") or ""
 
-PROJECT_NAME = "backend"
+PROJECT_NAME = "backend" # filter sentry issues for perticular project
 
 # Tunables
 LOOKBACK_DAYS      = int(os.getenv("DAYS_LOOKBACK", "90"))
@@ -69,11 +56,6 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
 log = logging.getLogger("dora")
-
-
-# -----------------------------
-# Helpers
-# -----------------------------
 
 def utc_from_iso(s: Optional[str]) -> Optional[datetime]:
     if not s:
@@ -148,9 +130,7 @@ def sentry_get(path: str, params: Optional[Dict[str, Any]] = None) -> Any:
     r = _request_with_backoff(url, HEADERS_SENTRY, params=params)
     return r.json()
 
-# -----------------------------
 # DB setup
-# -----------------------------
 
 def db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
@@ -245,10 +225,7 @@ def init_schema(conn: sqlite3.Connection):
     )
     conn.commit()
 
-# -----------------------------
 # 1) Ingest GitHub Deployments
-# -----------------------------
-
 def ingest_github_deployments(conn: sqlite3.Connection, etl_run_id: str) -> int:
     """
     Pull GitHub deployments for the specified ENVIRONMENT and write into fact_deployment.
@@ -305,10 +282,7 @@ def ingest_github_deployments(conn: sqlite3.Connection, etl_run_id: str) -> int:
     log.info("Ingested %d GitHub deployments", ingested)
     return ingested
 
-# -----------------------------
 # 2) Ingest GitHub PRs (merged)
-# -----------------------------
-
 def ingest_github_prs(conn: sqlite3.Connection, etl_run_id: str) -> int:
     prs = gh_get_paged(f"{BASE_GH}/repos/{OWNER}/{REPO}/pulls", params={"state": "closed"}, cap_pages=10)
     prs = [p for p in prs if p.get("merged_at")]
@@ -349,10 +323,7 @@ def ingest_github_prs(conn: sqlite3.Connection, etl_run_id: str) -> int:
     log.info("Ingested %d GitHub PRs (merged)", ingested)
     return ingested
 
-# -----------------------------
 # 3) Build Deployment Windows & Map PRs (Lead Time)
-# -----------------------------
-
 def gh_compare_commits(base_sha: str, head_sha: str) -> List[str]:
     """
     Returns the list of commits (SHAs) that are in base..head (exclusive of base)
@@ -446,10 +417,7 @@ def build_deploy_windows_and_lt(conn: sqlite3.Connection) -> Tuple[int, int]:
     log.info("Built %d deployment windows, mapped LT for %d PRs", len(windows), mapped)
     return len(windows), mapped
 
-# -----------------------------
 # 4) CFR (Sentry-first, GH fallback)
-# -----------------------------
-
 def sentry_recent_releases_production() -> List[Dict[str, Any]]:
     """
     Optionally get Sentry releases and their production deploy times (if releases are used).
@@ -568,10 +536,7 @@ def compute_cfr_per_deploy(conn: sqlite3.Connection) -> int:
     log.info("Classified CFR for %d deployments", classified)
     return classified
 
-# -----------------------------
 # 5) MTTR from Sentry incidents
-# -----------------------------
-
 def ingest_sentry_incidents(conn: sqlite3.Connection, etl_run_id: str) -> int:
     if not HEADERS_SENTRY:
         log.info("Sentry credentials not provided; skipping incident ingestion.")
@@ -612,10 +577,7 @@ def ingest_sentry_incidents(conn: sqlite3.Connection, etl_run_id: str) -> int:
     log.info("Ingested %d Sentry incidents", ingested)
     return ingested
 
-# -----------------------------
 # 6) Daily summary + unified events stream
-# -----------------------------
-
 def rebuild_daily_summary(conn: sqlite3.Connection):
     """
     Rebuild dora_summary_daily from facts & derived tables. SQLite-safe (no FULL OUTER JOIN).
@@ -756,10 +718,7 @@ def export_all_to_json(conn: sqlite3.Connection, output_file: str = "dora.json")
         json.dump(all_data, f, indent=4)
     log.info("Exported all tables to JSON: %s", output_file)
 
-# -----------------------------
-# Main
-# -----------------------------
-
+# main function
 def main():
     # Basic validation
     missing = []
@@ -804,7 +763,6 @@ def main():
         export_all_to_json(conn, output_file="dora.json")
     finally:
         conn.close()
-
 
 if __name__ == "__main__":
     main()
