@@ -358,8 +358,8 @@ export function calculateDoraMetrics(filteredData: FilteredData, originalData: D
     ),
     totalDeployments,
     successRate,
-    totalIncidents: originalData.fact_incident?.length || originalData.dora_events?.filter(event => event.event_type === 'incident').length || 0,
-    totalPRs: originalData.fact_pr?.length || 0
+    totalIncidents: filteredData.fact_incident?.length || filteredData.dora_events?.filter(event => event.event_type === 'incident').length || 0,
+    totalPRs: filteredData.fact_pr?.length || 0
   };
 }
 
