@@ -21,8 +21,8 @@ GH_TOKEN       = os.getenv("GH_TOKEN") or ""
 OWNER          = os.getenv("OWNER") or ""
 REPO           = os.getenv("REPO") or ""
 ENVIRONMENT    = os.getenv("ENVIRONMENT", "")
-PR_LIMIT       = int(os.getenv("PR_LIMIT", "5000"))
-DEPLOY_LIMIT   = int(os.getenv("DEPLOY_LIMIT", "5000"))
+PR_LIMIT       = int(os.getenv("PR_LIMIT", "5"))
+DEPLOY_LIMIT   = int(os.getenv("DEPLOY_LIMIT", "5"))
 
 # Sentry
 SENTRY_TOKEN   = os.getenv("SENTRY_TOKEN") or ""
