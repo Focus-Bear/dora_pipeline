@@ -8,6 +8,8 @@ on:
 jobs:
   run-script:
     runs-on: ubuntu-latest
+    environment:
+      name: production
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
