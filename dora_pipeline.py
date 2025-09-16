@@ -221,6 +221,16 @@ def init_schema(conn: sqlite3.Connection):
             title         TEXT,
             state         TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS analysis (
+            open_prs          INTEGER,
+            issues_done       INTEGER,
+            issues_QA         INTEGER,
+            issues_TODO       INTEGER,
+            source_fetched_at_utc TEXT,
+            etl_run_id        TEXT
+        );
+
         """
     )
     conn.commit()
@@ -704,6 +714,7 @@ def export_all_to_json(conn: sqlite3.Connection, output_file: str = "dora.json")
         "derived_cfr_per_deploy",
         "dora_summary_daily",
         "dora_events",
+        "analysis"
     ]
     
     all_data = {}
@@ -717,6 +728,98 @@ def export_all_to_json(conn: sqlite3.Connection, output_file: str = "dora.json")
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(all_data, f, indent=4)
     log.info("Exported all tables to JSON: %s", output_file)
+
+# 7) compute counts for analysis
+
+def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
+    # --- Open PRs ---
+    prs = gh_get_paged(f"{BASE_GH}/repos/{OWNER}/{REPO}/pulls", params={"state": "open"}, cap_pages=5)
+    open_prs = len(prs)
+
+    # --- Issues by Status (Project v2 GraphQL) ---
+    issues_done = issues_qa = issues_todo = 0
+
+    query = """
+    query($org: String!, $repo: String!, $first: Int!, $after: String) {
+      repository(owner: $org, name: $repo) {
+        projectsV2(first: 10) {
+          nodes {
+            id
+            title
+            items(first: $first, after: $after) {
+              nodes {
+                fieldValues(first: 20) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                    }
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    headers = {
+        "Authorization": f"Bearer {GH_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    url = "https://api.github.com/graphql"
+
+    variables = {"org": OWNER, "repo": REPO, "first": 100, "after": None}
+    # while True:
+    #     r = requests.post(url, headers=headers, json={"query": query, "variables": variables})
+    #     r.raise_for_status()
+    #     data = r.json()
+
+    #     projects = data["data"]["repository"]["projectsV2"]["nodes"]
+    #     print(projects)
+    #     if not projects:
+    #         break
+
+    #     for item in projects[0]["items"]["nodes"]:
+    #         for fv in item["fieldValues"]["nodes"]:
+    #             status = fv.get("name")
+    #             if status == "Done":
+    #                 issues_done += 1
+    #             elif status == "QA":
+    #                 issues_qa += 1
+    #             elif status == "TODO":
+    #                 issues_todo += 1
+
+    #     page = projects[0]["items"]["pageInfo"]
+    #     if page["hasNextPage"]:
+    #         variables["after"] = page["endCursor"]
+    #     else:
+    #         break
+
+    # --- Save into DB ---
+    cur = conn.cursor()
+    cur.execute("DELETE FROM analysis")  # clear old snapshot
+    cur.execute(
+        """
+        INSERT INTO analysis
+        (open_prs, issues_done, issues_QA, issues_TODO, source_fetched_at_utc, etl_run_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            open_prs,
+            issues_done,
+            issues_qa,
+            issues_todo,
+            iso(NOW_UTC),
+            etl_run_id,
+        ),
+    )
+    conn.commit()
+    log.info("Analysis snapshot saved: open_prs=%d, done=%d, QA=%d, TODO=%d",open_prs, issues_done, issues_qa, issues_todo)
 
 # main function
 def main():
@@ -756,6 +859,10 @@ def main():
         log.info("Rebuilding daily summary & events stream…")
         rebuild_daily_summary(conn)
         backfill_events(conn)
+
+        log.info("Computing analysis snapshot…")
+        compute_analysis(conn, etl_run_id)
+
 
         log.info("✅ Done. SQLite file -> %s", DB_PATH)
 
