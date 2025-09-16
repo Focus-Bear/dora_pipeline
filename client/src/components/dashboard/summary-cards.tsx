@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, CheckCircle, Bug, GitBranch } from "lucide-react";
+import { Upload, CheckCircle, Bug, GitBranch,Braces,GitPullRequest } from "lucide-react";
 import { DoraMetrics } from "@/lib/dora-calculations";
 
 interface SummaryCardsProps {
@@ -31,6 +31,17 @@ export default function SummaryCards({ metrics }: SummaryCardsProps) {
       value: metrics.totalPRs,
       icon: GitBranch,
       color: "text-chart-5"
+    },
+    {
+      title: "Issues in QA",
+      value: metrics.issuesInQA,
+      icon: Braces,
+      color: "text-chart-5"
+    },{
+      title: "PRs Open",
+      value: metrics.totalOpenPRs,
+      icon: GitPullRequest,
+      color: "text-primary"
     }
   ];
 
