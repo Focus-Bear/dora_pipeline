@@ -30,6 +30,7 @@ SENTRY_ORG     = os.getenv("SENTRY_ORG") or ""
 SENTRY_PROJECT = os.getenv("SENTRY_PROJECT") or ""
 
 PROJECT_NAME = "backend" # filter sentry issues for perticular project
+GH_PROJECT_NUMBER = 4 # github project board number in url
 
 # Tunables
 LOOKBACK_DAYS      = int(os.getenv("DAYS_LOOKBACK", "90"))
@@ -39,6 +40,7 @@ DB_PATH = os.getenv("DORA_DB_PATH", "dora.sqlite")
 
 BASE_GH = "https://api.github.com"
 BASE_SENTRY = "https://sentry.io/api/0"
+BASE_GH_URL = "https://api.github.com/graphql"
 
 HEADERS_GH = {
     "Authorization": f"Bearer {GH_TOKEN}",
@@ -787,13 +789,12 @@ def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
         "Authorization": f"Bearer {GH_TOKEN}",
         "Accept": "application/vnd.github+json",
     }
-    url = "https://api.github.com/graphql"
-
+    
     # ⚡ Use org + project number (from URL, e.g. https://github.com/orgs/Focus-Bear/projects/4 → project=4)
-    variables = {"org": OWNER, "project": 4, "first": 50, "after": None}
+    variables = {"org": OWNER, "project": GH_PROJECT_NUMBER, "first": 50, "after": None}
 
     while True:
-        r = requests.post(url, headers=headers, json={"query": query, "variables": variables})
+        r = requests.post(BASE_GH_URL, headers=headers, json={"query": query, "variables": variables})
         r.raise_for_status()
         data = r.json()
 
