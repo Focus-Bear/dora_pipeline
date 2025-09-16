@@ -1,0 +1,524 @@
+{
+    "fact_deployment": [
+        {
+            "deployment_id": 2734445708,
+            "environment": "",
+            "created_at_utc": "2025-07-13T14:42:17+00:00",
+            "finished_at_utc": "2025-07-13T14:53:22+00:00",
+            "state": "inactive",
+            "actor": "jeznag",
+            "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "ref": "add-habit-icon",
+            "log_url": "",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "deployment_id": 3005610576,
+            "environment": "",
+            "created_at_utc": "2025-09-14T13:17:56+00:00",
+            "finished_at_utc": "2025-09-14T13:18:08+00:00",
+            "state": "inactive",
+            "actor": "unurbat2848",
+            "sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9",
+            "ref": "fix-github-deployments-not-being-updated",
+            "log_url": "https://github.com/Focus-Bear/backend/actions/runs/17711679165/job/50331326041",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "deployment_id": 3013608521,
+            "environment": "",
+            "created_at_utc": "2025-09-16T07:39:44+00:00",
+            "finished_at_utc": "2025-09-16T07:45:32+00:00",
+            "state": "inactive",
+            "actor": "copypasteonly",
+            "sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "ref": "main",
+            "log_url": "https://github.com/Focus-Bear/backend/actions/runs/17758279908/job/50465643469",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "deployment_id": 3013759638,
+            "environment": "",
+            "created_at_utc": "2025-09-16T08:13:38+00:00",
+            "finished_at_utc": "2025-09-16T08:19:24+00:00",
+            "state": "inactive",
+            "actor": "copypasteonly",
+            "sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "ref": "main",
+            "log_url": "https://github.com/Focus-Bear/backend/actions/runs/17759091051/job/50468211073",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "deployment_id": 3013862595,
+            "environment": "",
+            "created_at_utc": "2025-09-16T08:35:41+00:00",
+            "finished_at_utc": "2025-09-16T08:41:29+00:00",
+            "state": "success",
+            "actor": "copypasteonly",
+            "sha": "aef439ba226b255087d1f27ea5794aa48cb67735",
+            "ref": "main",
+            "log_url": "https://github.com/Focus-Bear/backend/actions/runs/17759718382/job/50470019288",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        }
+    ],
+    "fact_pr": [
+        {
+            "pr_number": 1359,
+            "pr_merged_at_utc": "2025-09-10T17:41:40+00:00",
+            "pr_merge_sha": "46c490ef6ef57020e0cfbd800c7e948f9f8ccb94",
+            "author": "amanueltsfy",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "pr_number": 1361,
+            "pr_merged_at_utc": "2025-09-16T07:32:44+00:00",
+            "pr_merge_sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "author": "copypasteonly",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "pr_number": 1367,
+            "pr_merged_at_utc": "2025-09-15T06:12:18+00:00",
+            "pr_merge_sha": "1d346507cf8693927a25039e9589600d2a0a930b",
+            "author": "kakadiyakeyur53",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "pr_number": 1368,
+            "pr_merged_at_utc": "2025-09-16T08:06:34+00:00",
+            "pr_merge_sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "author": "Alukewarmglassofwater",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "pr_number": 1372,
+            "pr_merged_at_utc": "2025-09-16T08:28:49+00:00",
+            "pr_merge_sha": "aef439ba226b255087d1f27ea5794aa48cb67735",
+            "author": "copypasteonly",
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        }
+    ],
+    "fact_incident": [
+        {
+            "incident_id": "6722462027",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "created_utc": "2025-07-02T14:00:01+00:00",
+            "closed_utc": "2025-07-02T14:03:48+00:00",
+            "duration_minutes": 3.783333333333333,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "incident_id": "6722449026",
+            "title": "FetchError: The request failed and the interceptors did not return an alternative response",
+            "created_utc": "2025-07-02T13:56:22+00:00",
+            "closed_utc": "2025-07-02T13:57:25+00:00",
+            "duration_minutes": 1.05,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "incident_id": "6722443962",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "created_utc": "2025-07-02T13:53:15+00:00",
+            "closed_utc": "2025-07-02T13:55:11+00:00",
+            "duration_minutes": 1.9333333333333333,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "incident_id": "6722444072",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "created_utc": "2025-07-02T13:53:52+00:00",
+            "closed_utc": "2025-07-02T13:55:07+00:00",
+            "duration_minutes": 1.25,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "incident_id": "6722446804",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "created_utc": "2025-07-02T13:54:10+00:00",
+            "closed_utc": "2025-07-02T13:54:54+00:00",
+            "duration_minutes": 0.7333333333333333,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "incident_id": "6709697610",
+            "title": "Error: Last test",
+            "created_utc": "2025-06-26T06:45:30+00:00",
+            "closed_utc": "2025-06-26T06:45:30+00:00",
+            "duration_minutes": 0.0,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        },
+        {
+            "incident_id": "6709693463",
+            "title": "Error: Test error - this should appear in Sentry",
+            "created_utc": "2025-06-26T06:42:09+00:00",
+            "closed_utc": "2025-06-26T06:44:01+00:00",
+            "duration_minutes": 1.8666666666666667,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        }
+    ],
+    "derived_deploy_window": [
+        {
+            "window_id": 1,
+            "prev_sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "curr_sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9",
+            "deployed_at_utc": "2025-09-14T13:18:08+00:00"
+        },
+        {
+            "window_id": 2,
+            "prev_sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9",
+            "curr_sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "deployed_at_utc": "2025-09-16T07:45:32+00:00"
+        },
+        {
+            "window_id": 3,
+            "prev_sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "curr_sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "deployed_at_utc": "2025-09-16T08:19:24+00:00"
+        },
+        {
+            "window_id": 4,
+            "prev_sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "curr_sha": "aef439ba226b255087d1f27ea5794aa48cb67735",
+            "deployed_at_utc": "2025-09-16T08:41:29+00:00"
+        }
+    ],
+    "derived_pr_lead_time": [
+        {
+            "pr_number": 1359,
+            "first_deployed_at_utc": "2025-09-14T13:18:08+00:00",
+            "lt_hours": 91.61,
+            "window_prev_sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "window_curr_sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9"
+        },
+        {
+            "pr_number": 1361,
+            "first_deployed_at_utc": "2025-09-16T07:45:32+00:00",
+            "lt_hours": 0.21,
+            "window_prev_sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9",
+            "window_curr_sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6"
+        },
+        {
+            "pr_number": 1367,
+            "first_deployed_at_utc": "2025-09-16T07:45:32+00:00",
+            "lt_hours": 25.55,
+            "window_prev_sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9",
+            "window_curr_sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6"
+        },
+        {
+            "pr_number": 1368,
+            "first_deployed_at_utc": "2025-09-16T08:19:24+00:00",
+            "lt_hours": 0.21,
+            "window_prev_sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "window_curr_sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b"
+        },
+        {
+            "pr_number": 1372,
+            "first_deployed_at_utc": "2025-09-16T08:41:29+00:00",
+            "lt_hours": 0.21,
+            "window_prev_sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "window_curr_sha": "aef439ba226b255087d1f27ea5794aa48cb67735"
+        }
+    ],
+    "derived_cfr_per_deploy": [
+        {
+            "deployment_id": 2734445708,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 3005610576,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 3013608521,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 3013759638,
+            "failed": 0,
+            "reason": "none"
+        },
+        {
+            "deployment_id": 3013862595,
+            "failed": 0,
+            "reason": "none"
+        }
+    ],
+    "dora_summary_daily": [
+        {
+            "date": "2025-06-26",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 1.8666666666666667
+        },
+        {
+            "date": "2025-07-02",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 8.75
+        },
+        {
+            "date": "2025-07-13",
+            "deploys": 1,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-10",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 91.61,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-14",
+            "deploys": 1,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.0,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-15",
+            "deploys": 0,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 25.55,
+            "mttr_min": 0.0
+        },
+        {
+            "date": "2025-09-16",
+            "deploys": 3,
+            "failed_deploys": 0,
+            "cfr": 0.0,
+            "avg_lt_hours": 0.63,
+            "mttr_min": 0.0
+        }
+    ],
+    "dora_events": [
+        {
+            "event_id": 1,
+            "event_type": "deployment",
+            "when_utc": "2025-07-13T14:53:22+00:00",
+            "sha": "35ed2ae2b6673b48e48cd54014feb70445b91b92",
+            "pr_number": null,
+            "deployment_id": 2734445708,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 2,
+            "event_type": "deployment",
+            "when_utc": "2025-09-14T13:18:08+00:00",
+            "sha": "b1fe07e61203e912295a08ed334af96e1acd1dc9",
+            "pr_number": null,
+            "deployment_id": 3005610576,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 3,
+            "event_type": "deployment",
+            "when_utc": "2025-09-16T07:45:32+00:00",
+            "sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "pr_number": null,
+            "deployment_id": 3013608521,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 4,
+            "event_type": "deployment",
+            "when_utc": "2025-09-16T08:19:24+00:00",
+            "sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "pr_number": null,
+            "deployment_id": 3013759638,
+            "incident_id": null,
+            "title": null,
+            "state": "inactive"
+        },
+        {
+            "event_id": 5,
+            "event_type": "deployment",
+            "when_utc": "2025-09-16T08:41:29+00:00",
+            "sha": "aef439ba226b255087d1f27ea5794aa48cb67735",
+            "pr_number": null,
+            "deployment_id": 3013862595,
+            "incident_id": null,
+            "title": null,
+            "state": "success"
+        },
+        {
+            "event_id": 6,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-10T17:41:40+00:00",
+            "sha": "46c490ef6ef57020e0cfbd800c7e948f9f8ccb94",
+            "pr_number": 1359,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 7,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-16T07:32:44+00:00",
+            "sha": "414bcffd0d5db48d6f1a33a35e0ecba820f73fb6",
+            "pr_number": 1361,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 8,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-15T06:12:18+00:00",
+            "sha": "1d346507cf8693927a25039e9589600d2a0a930b",
+            "pr_number": 1367,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 9,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-16T08:06:34+00:00",
+            "sha": "3c7e86856fe820dfe4f67247cf84d02504db3a9b",
+            "pr_number": 1368,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 10,
+            "event_type": "pr_merge",
+            "when_utc": "2025-09-16T08:28:49+00:00",
+            "sha": "aef439ba226b255087d1f27ea5794aa48cb67735",
+            "pr_number": 1372,
+            "deployment_id": null,
+            "incident_id": null,
+            "title": null,
+            "state": null
+        },
+        {
+            "event_id": 11,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T14:00:01+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722462027",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "state": null
+        },
+        {
+            "event_id": 12,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:56:22+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722449026",
+            "title": "FetchError: The request failed and the interceptors did not return an alternative response",
+            "state": null
+        },
+        {
+            "event_id": 13,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:53:15+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722443962",
+            "title": "Error: error:1C800064:Provider routines::bad decrypt",
+            "state": null
+        },
+        {
+            "event_id": 14,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:53:52+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722444072",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "state": null
+        },
+        {
+            "event_id": 15,
+            "event_type": "incident",
+            "when_utc": "2025-07-02T13:54:10+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6722446804",
+            "title": "Error: 401 Incorrect API key provided: placeholder. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "state": null
+        },
+        {
+            "event_id": 16,
+            "event_type": "incident",
+            "when_utc": "2025-06-26T06:45:30+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6709697610",
+            "title": "Error: Last test",
+            "state": null
+        },
+        {
+            "event_id": 17,
+            "event_type": "incident",
+            "when_utc": "2025-06-26T06:42:09+00:00",
+            "sha": null,
+            "pr_number": null,
+            "deployment_id": null,
+            "incident_id": "6709693463",
+            "title": "Error: Test error - this should appear in Sentry",
+            "state": null
+        }
+    ],
+    "analysis": [
+        {
+            "open_prs": 1,
+            "issues_done": 237,
+            "issues_QA": 47,
+            "issues_TODO": 1,
+            "source_fetched_at_utc": "2025-09-16T09:23:56.226751+00:00",
+            "etl_run_id": "run-1758014636"
+        }
+    ],
+    "issues": []
+}
