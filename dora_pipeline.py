@@ -231,6 +231,14 @@ def init_schema(conn: sqlite3.Connection):
             etl_run_id        TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS issues (
+        issue_id TEXT PRIMARY KEY,
+        repo TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        title TEXT,
+        status TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
         """
     )
     conn.commit()
@@ -714,7 +722,8 @@ def export_all_to_json(conn: sqlite3.Connection, output_file: str = "dora.json")
         "derived_cfr_per_deploy",
         "dora_summary_daily",
         "dora_events",
-        "analysis"
+        "analysis",
+        "issues"
     ]
     
     all_data = {}
@@ -732,34 +741,41 @@ def export_all_to_json(conn: sqlite3.Connection, output_file: str = "dora.json")
 # 7) compute counts for analysis
 
 def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
-    # --- Open PRs ---
+
     prs = gh_get_paged(f"{BASE_GH}/repos/{OWNER}/{REPO}/pulls", params={"state": "open"}, cap_pages=5)
     open_prs = len(prs)
 
-    # --- Issues by Status (Project v2 GraphQL) ---
+    # --- Issues by Status (Org-level Project v2 GraphQL) ---
     issues_done = issues_qa = issues_todo = 0
 
     query = """
-    query($org: String!, $repo: String!, $first: Int!, $after: String) {
-      repository(owner: $org, name: $repo) {
-        projectsV2(first: 10) {
-          nodes {
-            id
-            title
-            items(first: $first, after: $after) {
-              nodes {
-                fieldValues(first: 20) {
-                  nodes {
-                    ... on ProjectV2ItemFieldSingleSelectValue {
-                      name
-                    }
+    query($org: String!, $project: Int!, $first: Int!, $after: String) {
+      organization(login: $org) {
+        projectV2(number: $project) {
+          title
+          items(first: $first, after: $after) {
+            nodes {
+              content {
+                __typename
+                ... on Issue {
+                  number
+                  title
+                  repository {
+                    nameWithOwner
                   }
                 }
               }
-              pageInfo {
-                hasNextPage
-                endCursor
+              fieldValues(first: 20) {
+                nodes {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    name
+                  }
+                }
               }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
             }
           }
         }
@@ -773,32 +789,82 @@ def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
     }
     url = "https://api.github.com/graphql"
 
-    variables = {"org": OWNER, "repo": REPO, "first": 100, "after": None}
-    # while True:
-    #     r = requests.post(url, headers=headers, json={"query": query, "variables": variables})
-    #     r.raise_for_status()
-    #     data = r.json()
+    # ⚡ Use org + project number (from URL, e.g. https://github.com/orgs/Focus-Bear/projects/4 → project=4)
+    variables = {"org": OWNER, "project": 4, "first": 50, "after": None}
 
-    #     projects = data["data"]["repository"]["projectsV2"]["nodes"]
-    #     print(projects)
-    #     if not projects:
-    #         break
+    while True:
+        r = requests.post(url, headers=headers, json={"query": query, "variables": variables})
+        r.raise_for_status()
+        data = r.json()
 
-    #     for item in projects[0]["items"]["nodes"]:
-    #         for fv in item["fieldValues"]["nodes"]:
-    #             status = fv.get("name")
-    #             if status == "Done":
-    #                 issues_done += 1
-    #             elif status == "QA":
-    #                 issues_qa += 1
-    #             elif status == "TODO":
-    #                 issues_todo += 1
+        project = data["data"]["organization"]["projectV2"]
+        if not project:
+            break
 
-    #     page = projects[0]["items"]["pageInfo"]
-    #     if page["hasNextPage"]:
-    #         variables["after"] = page["endCursor"]
-    #     else:
-    #         break
+        for item in project["items"]["nodes"]:
+            repo_name = REPO
+            number = None
+            title = None
+            status = None
+
+            # read issue content if present
+            content = item.get("content")
+            if content:
+                number = content.get("number")
+                title = content.get("title")
+                repo_info = content.get("repository")  # this is a dict
+                if repo_info and repo_info.get("name"):
+                    repo_name = repo_info.get("name")
+
+            for fv in item["fieldValues"]["nodes"]:
+                status = fv.get("name")
+                if status == "Deployed awaiting QA":
+                    issues_done += 1
+                elif status == "QA'd":
+                    issues_qa += 1
+                elif status == "In Review":
+                    issues_todo += 1
+
+            # if number and status:
+            #     issue_id = f"{repo_name}#{number}"
+            #     conn.execute("""
+            #     INSERT INTO issues (issue_id, repo, number, title, status, updated_at)
+            #     VALUES (?, ?, ?, ?, ?, ?)
+            #     ON CONFLICT(issue_id) DO UPDATE SET
+            #         title = excluded.title,
+            #         status = excluded.status
+            #     """, (issue_id, repo_name, number, title, status,iso(NOW_UTC)))
+            #     conn.commit()
+
+        page = project["items"]["pageInfo"]
+        if page["hasNextPage"]:
+            variables["after"] = page["endCursor"]
+        else:
+            break
+
+    # --- Save into DB ---
+    cur = conn.cursor()
+    cur.execute("DELETE FROM analysis")  # clear old snapshot
+    cur.execute(
+        """
+        INSERT INTO analysis
+        (open_prs, issues_done, issues_QA, issues_TODO, source_fetched_at_utc, etl_run_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            open_prs,
+            issues_done,
+            issues_qa,
+            issues_todo,
+            iso(NOW_UTC),
+            etl_run_id,
+        ),
+    )
+    conn.commit()
+    log.info(
+        "Analysis snapshot saved: open_prs=%d, done=%d, QA=%d, TODO=%d",
+        open_prs, issues_done, issues_qa, issues_todo
+    )
 
     # --- Save into DB ---
     cur = conn.cursor()
