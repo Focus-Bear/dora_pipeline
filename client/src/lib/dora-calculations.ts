@@ -56,6 +56,14 @@ export interface DoraData {
     source_fetched_at_utc: string,
     etl_run_id: string
   }>;
+  issues?: Array<{
+    issue_id: string,
+    repo: string,
+    number: number,
+    title: string,
+    status: string,
+    updated_at: string
+  }>;
 }
 
 export interface DoraMetrics {
@@ -95,6 +103,7 @@ export interface FilteredData {
   fact_incident: DoraData['fact_incident'];
   dora_events: DoraData['dora_events'];
   analysis: DoraData['analysis'];
+  issues: DoraData['issues'];
 }
 
 export function loadDoraData(): DoraData {
@@ -110,7 +119,8 @@ export function filterDataByDays(data: DoraData, days: number | null): FilteredD
       fact_pr: data.fact_pr || [],
       fact_incident: data.fact_incident || [],
       dora_events: data.dora_events || [],
-      analysis: data.analysis || []
+      analysis: data.analysis || [],
+      issues: data.issues || []
     };
   }
 
@@ -132,7 +142,10 @@ export function filterDataByDays(data: DoraData, days: number | null): FilteredD
     dora_events: data.dora_events?.filter(event =>
       new Date(event.when_utc) >= cutoffDate
     ) || [],
-    analysis: data.analysis
+    analysis: data.analysis,
+    issues: data.issues?.filter(event =>
+      new Date(event.updated_at) >= cutoffDate
+    ) || []
   };
 }
 
@@ -386,7 +399,7 @@ export function calculateDoraMetrics(filteredData: FilteredData, originalData: D
     totalIncidents: filteredData.fact_incident?.length || filteredData.dora_events?.filter(event => event.event_type === 'incident').length || 0,
     totalPRs: filteredData.fact_pr?.length || 0,
     totalOpenPRs: analysisData?.open_prs || 0,
-    issuesInQA: analysisData?.issues_QA || 0
+    issuesInQA: filteredData.issues?.filter(issue=> issue.status =="QA'd")?.length || 0
   };
 }
 
