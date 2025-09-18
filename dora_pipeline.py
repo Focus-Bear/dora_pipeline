@@ -826,16 +826,17 @@ def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
                 elif status == "In Review":
                     issues_todo += 1
 
-            # if number and status:
-            #     issue_id = f"{repo_name}#{number}"
-            #     conn.execute("""
-            #     INSERT INTO issues (issue_id, repo, number, title, status, updated_at)
-            #     VALUES (?, ?, ?, ?, ?, ?)
-            #     ON CONFLICT(issue_id) DO UPDATE SET
-            #         title = excluded.title,
-            #         status = excluded.status
-            #     """, (issue_id, repo_name, number, title, status,iso(NOW_UTC)))
-            #     conn.commit()
+            if number and status:
+                issue_id = f"{repo_name}#{number}"
+                conn.execute("""
+                INSERT INTO issues (issue_id, repo, number, title, status, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(issue_id) DO UPDATE SET
+                    title = excluded.title,
+                    status = excluded.status,
+                    updated_at = CASE WHEN excluded.status <> issues.status THEN excluded.updated_at ELSE issues.updated_at END
+                """, (issue_id, repo_name, number, title, status,iso(NOW_UTC)))
+                conn.commit()
 
         page = project["items"]["pageInfo"]
         if page["hasNextPage"]:
