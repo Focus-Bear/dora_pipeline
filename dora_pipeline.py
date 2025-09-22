@@ -533,20 +533,25 @@ def compute_cfr_per_deploy(conn: sqlite3.Connection) -> int:
     Fallback: GitHub state == 'failure'.
     """
     cur = conn.cursor()
-    cur.execute("DELETE FROM derived_cfr_per_deploy")
+    # cur.execute("DELETE FROM derived_cfr_per_deploy")
 
     # Precompute Sentry release-based windows (optional)
     sentry_rel_windows = sentry_recent_releases_production()  # may be empty if releases not used
 
-    cur.execute(
-        """
-        SELECT deployment_id, finished_at_utc, state
-        FROM fact_deployment
-        WHERE environment=? AND finished_at_utc IS NOT NULL
-        """,
-        (ENVIRONMENT,),
-    )
-    deployments = cur.fetchall()
+    # cur.execute(
+    #     """
+    #     SELECT deployment_id, finished_at_utc, state
+    #     FROM fact_deployment
+    #     WHERE environment=? AND finished_at_utc IS NOT NULL
+    #     """,
+    #     (ENVIRONMENT,),
+    # )
+    # deployments = cur.fetchall()
+    deployments = [
+        (d["deployment_id"], d["finished_at_utc"], d["state"])
+        for d in NEW_DEPLOYMENTS
+        if d["environment"] == ENVIRONMENT and d["finished_at_utc"]
+    ]
     classified = 0
     window_delta = timedelta(minutes=CFR_WINDOW_MIN)
 
@@ -919,8 +924,8 @@ def main():
         log.info("Ingesting GitHub PRs…")
         ingest_github_prs(conn, etl_run_id)
 
-        log.info("Building deploy windows & mapping PRs (Lead Time)…")
-        build_deploy_windows_and_lt(conn)
+        # log.info("Building deploy windows & mapping PRs (Lead Time)…")
+        # build_deploy_windows_and_lt(conn)
 
         if SENTRY_TOKEN and SENTRY_ORG and SENTRY_PROJECT:
             log.info("Ingesting Sentry incidents (for MTTR)…")
