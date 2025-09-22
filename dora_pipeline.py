@@ -21,8 +21,6 @@ GH_TOKEN       = os.getenv("GH_TOKEN") or ""
 OWNER          = os.getenv("OWNER") or ""
 REPO           = os.getenv("REPO") or ""
 ENVIRONMENT    = os.getenv("ENVIRONMENT", "")
-PR_LIMIT       = int(os.getenv("PR_LIMIT", "5"))
-DEPLOY_LIMIT   = int(os.getenv("DEPLOY_LIMIT", "5"))
 
 # Sentry
 SENTRY_TOKEN   = os.getenv("SENTRY_TOKEN") or ""
@@ -51,6 +49,9 @@ HEADERS_GH = {
 HEADERS_SENTRY = {"Authorization": f"Bearer {SENTRY_TOKEN}"} if SENTRY_TOKEN else None
 
 SINCE_UTC = NOW_UTC - timedelta(days=LOOKBACK_DAYS)
+
+NEW_DEPLOYMENTS: List[Dict[str, Any]] = []
+NEW_PRS: List[Dict[str, Any]] = []
 
 # Logging
 logging.basicConfig(
@@ -247,18 +248,21 @@ def init_schema(conn: sqlite3.Connection):
 
 # 1) Ingest GitHub Deployments
 def ingest_github_deployments(conn: sqlite3.Connection, etl_run_id: str) -> int:
-    """
-    Pull GitHub deployments for the specified ENVIRONMENT and write into fact_deployment.
-    """
+    global NEW_DEPLOYMENTS
+    NEW_DEPLOYMENTS = []
+    cur = conn.cursor()
+    # fetch existing deployment ids for this environment
+    cur.execute("SELECT deployment_id FROM fact_deployment WHERE environment=?", (ENVIRONMENT,))
+    existing_ids = {row[0] for row in cur.fetchall()}
+
     params = {"environment": ENVIRONMENT, "per_page": 100}
     deployments = gh_get_paged(f"{BASE_GH}/repos/{OWNER}/{REPO}/deployments", params=params, cap_pages=10)
-    if DEPLOY_LIMIT:
-        deployments = deployments[:DEPLOY_LIMIT]
 
-    cur = conn.cursor()
     ingested = 0
     for d in deployments:
         dep_id = d.get("id")
+        if dep_id in existing_ids:
+            continue 
         ref = d.get("ref")
         sha = d.get("sha") or ref
         creator = (d.get("creator") or {}).get("login")
@@ -298,23 +302,42 @@ def ingest_github_deployments(conn: sqlite3.Connection, etl_run_id: str) -> int:
             ),
         )
         ingested += 1
+        NEW_DEPLOYMENTS.append({
+            "deployment_id": dep_id,
+            "environment": ENVIRONMENT,
+            "created_at_utc": iso(created),
+            "finished_at_utc": iso(finished),
+            "state": state,
+            "actor": creator,
+            "sha": sha,
+            "ref": ref,
+            "log_url": log_url,
+            "source_fetched_at_utc": iso(NOW_UTC),
+            "etl_run_id": etl_run_id
+        })
     conn.commit()
     log.info("Ingested %d GitHub deployments", ingested)
     return ingested
 
 # 2) Ingest GitHub PRs (merged)
 def ingest_github_prs(conn: sqlite3.Connection, etl_run_id: str) -> int:
+    global NEW_PRS
+    NEW_PRS = []
+    cur = conn.cursor()
+    # fetch already ingested PRs
+    cur.execute("SELECT pr_number FROM fact_pr")
+    existing_prs = {row[0] for row in cur.fetchall()}
+
     prs = gh_get_paged(f"{BASE_GH}/repos/{OWNER}/{REPO}/pulls", params={"state": "closed"}, cap_pages=10)
     prs = [p for p in prs if p.get("merged_at")]
     # Sort recent first, then cap
     prs.sort(key=lambda p: p.get("merged_at") or "", reverse=True)
-    if PR_LIMIT:
-        prs = prs[:PR_LIMIT]
 
-    cur = conn.cursor()
     ingested = 0
     for p in prs:
         pr_number = p.get("number")
+        if pr_number in existing_prs:
+            continue
         merged_at = utc_from_iso(p.get("merged_at"))
         merge_sha = p.get("merge_commit_sha")
         author = (p.get("user") or {}).get("login")
@@ -339,6 +362,14 @@ def ingest_github_prs(conn: sqlite3.Connection, etl_run_id: str) -> int:
             ),
         )
         ingested += 1
+        NEW_PRS.append({
+            "pr_number": pr_number,
+            "pr_merged_at_utc": iso(merged_at),
+            "pr_merge_sha": merge_sha,
+            "author": author,
+            "source_fetched_at_utc": iso(NOW_UTC),
+            "etl_run_id": etl_run_id
+        })
     conn.commit()
     log.info("Ingested %d GitHub PRs (merged)", ingested)
     return ingested
@@ -843,30 +874,6 @@ def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
             variables["after"] = page["endCursor"]
         else:
             break
-
-    # --- Save into DB ---
-    cur = conn.cursor()
-    cur.execute("DELETE FROM analysis")  # clear old snapshot
-    cur.execute(
-        """
-        INSERT INTO analysis
-        (open_prs, issues_done, issues_QA, issues_TODO, source_fetched_at_utc, etl_run_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            open_prs,
-            issues_done,
-            issues_qa,
-            issues_todo,
-            iso(NOW_UTC),
-            etl_run_id,
-        ),
-    )
-    conn.commit()
-    log.info(
-        "Analysis snapshot saved: open_prs=%d, done=%d, QA=%d, TODO=%d",
-        open_prs, issues_done, issues_qa, issues_todo
-    )
 
     # --- Save into DB ---
     cur = conn.cursor()
