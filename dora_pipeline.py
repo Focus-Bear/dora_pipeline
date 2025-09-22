@@ -924,8 +924,8 @@ def main():
         log.info("Ingesting GitHub PRs…")
         ingest_github_prs(conn, etl_run_id)
 
-        # log.info("Building deploy windows & mapping PRs (Lead Time)…")
-        # build_deploy_windows_and_lt(conn)
+        log.info("Building deploy windows & mapping PRs (Lead Time)…")
+        build_deploy_windows_and_lt(conn)
 
         if SENTRY_TOKEN and SENTRY_ORG and SENTRY_PROJECT:
             log.info("Ingesting Sentry incidents (for MTTR)…")
