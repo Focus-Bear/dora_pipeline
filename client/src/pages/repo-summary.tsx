@@ -1,9 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, GitPullRequest, GitMerge, CheckCircle, Clock } from "lucide-react";
+import { AlertTriangle, GitPullRequest, GitMerge, CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 
 interface RepoMetrics {
@@ -13,108 +12,36 @@ interface RepoMetrics {
   prsMerged: number;
   issuesReadyForQA: number;
   issuesQACompleted: number;
-  isLoading: boolean;
-  error: string | null;
+  fetchedAt: string;
 }
 
-interface GitHubPR {
-  id: number;
-  state: string;
-  merged_at: string | null;
-  created_at: string;
-}
+function parseCSV(csvText: string): RepoMetrics[] {
+  const lines = csvText.trim().split("\n");
+  if (lines.length < 2) return [];
 
-interface GitHubIssue {
-  id: number;
-  labels: { name: string }[];
-  state: string;
-  pull_request?: object;
-}
+  const headers = lines[0].split(",");
+  const results: RepoMetrics[] = [];
 
-const REPOS = [
-  { name: "Focus-Bear/web_dashboard", displayName: "Web Dashboard" },
-  { name: "Focus-Bear/dora_pipeline", displayName: "Backend" },
-  { name: "Focus-Bear/dora_mobile", displayName: "Mobile" },
-  { name: "Focus-Bear/dora_mac", displayName: "Mac" },
-  { name: "Focus-Bear/dora_windows", displayName: "Windows" },
-];
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(",");
+    const row: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      row[header.trim()] = values[index]?.trim() || "";
+    });
 
-const GITHUB_API_BASE = "https://api.github.com";
-
-const fetchGitHubData = async (
-  repo: string,
-  token: string
-): Promise<{
-  prsOpened: number;
-  prsMerged: number;
-  issuesReadyForQA: number;
-  issuesQACompleted: number;
-}> => {
-  const headers: HeadersInit = {
-    Accept: "application/vnd.github.v3+json",
-  };
-
-  if (token) {
-    headers.Authorization = `token ${token}`;
+    results.push({
+      repoName: row["repo_name"] || "",
+      displayName: row["display_name"] || "",
+      prsOpened: parseInt(row["prs_opened"] || "0", 10),
+      prsMerged: parseInt(row["prs_merged"] || "0", 10),
+      issuesReadyForQA: parseInt(row["issues_ready_for_qa"] || "0", 10),
+      issuesQACompleted: parseInt(row["issues_qa_completed"] || "0", 10),
+      fetchedAt: row["fetched_at"] || "",
+    });
   }
 
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const since = thirtyDaysAgo.toISOString();
-
-  const [prsResponse, issuesResponse] = await Promise.all([
-    fetch(
-      `${GITHUB_API_BASE}/repos/${repo}/pulls?state=all&per_page=100&since=${since}`,
-      { headers }
-    ),
-    fetch(
-      `${GITHUB_API_BASE}/repos/${repo}/issues?state=all&per_page=100&since=${since}`,
-      { headers }
-    ),
-  ]);
-
-  if (!prsResponse.ok || !issuesResponse.ok) {
-    throw new Error("Failed to fetch GitHub data");
-  }
-
-  const prs: GitHubPR[] = await prsResponse.json();
-  const issues: GitHubIssue[] = await issuesResponse.json();
-
-  const recentPRs = prs.filter(
-    (pr) => new Date(pr.created_at) >= thirtyDaysAgo
-  );
-  const prsOpened = recentPRs.length;
-  const prsMerged = recentPRs.filter((pr) => pr.merged_at !== null).length;
-
-  const actualIssues = issues.filter((issue) => !issue.pull_request);
-
-  const issuesReadyForQA = actualIssues.filter((issue) =>
-    issue.labels.some(
-      (label) =>
-        label.name.toLowerCase().includes("ready for qa") ||
-        label.name.toLowerCase().includes("ready-for-qa") ||
-        label.name.toLowerCase().includes("qa ready")
-    )
-  ).length;
-
-  const issuesQACompleted = actualIssues.filter((issue) =>
-    issue.labels.some(
-      (label) =>
-        label.name.toLowerCase().includes("qa completed") ||
-        label.name.toLowerCase().includes("qa-completed") ||
-        label.name.toLowerCase().includes("qa done") ||
-        label.name.toLowerCase().includes("qa-done") ||
-        label.name.toLowerCase().includes("qa'd")
-    )
-  ).length;
-
-  return {
-    prsOpened,
-    prsMerged,
-    issuesReadyForQA,
-    issuesQACompleted,
-  };
-};
+  return results;
+}
 
 function MetricCard({
   title,
@@ -136,30 +63,7 @@ function MetricCard({
   );
 }
 
-function RepoCardContent({
-  metrics,
-}: {
-  metrics: RepoMetrics;
-}) {
-  if (metrics.isLoading) {
-    return (
-      <div className="grid grid-cols-2 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-lg" />
-        ))}
-      </div>
-    );
-  }
-
-  if (metrics.error) {
-    return (
-      <div className="flex items-center justify-center h-24 text-destructive">
-        <AlertTriangle className="h-5 w-5 mr-2" />
-        <span>{metrics.error}</span>
-      </div>
-    );
-  }
-
+function RepoCardContent({ metrics }: { metrics: RepoMetrics }) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <MetricCard
@@ -203,7 +107,7 @@ function RepoCard({ metrics }: { metrics: RepoMetrics }) {
   );
 }
 
-function SummaryCard({ metrics }: { metrics: RepoMetrics[] }) {
+function SummaryCard({ metrics, isLoading }: { metrics: RepoMetrics[]; isLoading: boolean }) {
   const totals = metrics.reduce(
     (acc, repo) => ({
       prsOpened: acc.prsOpened + repo.prsOpened,
@@ -213,8 +117,6 @@ function SummaryCard({ metrics }: { metrics: RepoMetrics[] }) {
     }),
     { prsOpened: 0, prsMerged: 0, issuesReadyForQA: 0, issuesQACompleted: 0 }
   );
-
-  const isLoading = metrics.some((m) => m.isLoading);
 
   return (
     <Card className="shadow-lg border-2 border-primary/20">
@@ -264,109 +166,116 @@ function SummaryCard({ metrics }: { metrics: RepoMetrics[] }) {
 }
 
 export default function RepoSummary() {
-  const [githubToken, setGithubToken] = useState("");
-  const [repoMetrics, setRepoMetrics] = useState<RepoMetrics[]>(
-    REPOS.map((repo) => ({
-      repoName: repo.name,
-      displayName: repo.displayName,
-      prsOpened: 0,
-      prsMerged: 0,
-      issuesReadyForQA: 0,
-      issuesQACompleted: 0,
-      isLoading: false,
-      error: null,
-    }))
-  );
+  const [repoMetrics, setRepoMetrics] = useState<RepoMetrics[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const fetchAllRepoData = useCallback(async () => {
-    setRepoMetrics((prev) =>
-      prev.map((repo) => ({ ...repo, isLoading: true, error: null }))
-    );
+  const fetchData = async () => {
+    setIsLoading(true);
+    setError(null);
 
-    const results = await Promise.allSettled(
-      REPOS.map(async (repo) => {
-        const data = await fetchGitHubData(repo.name, githubToken);
-        return { repoName: repo.name, ...data };
-      })
-    );
+    try {
+      const response = await fetch("/repo_summary.csv");
+      if (!response.ok) {
+        throw new Error("Failed to fetch repo summary data");
+      }
+      const csvText = await response.text();
+      const metrics = parseCSV(csvText);
+      setRepoMetrics(metrics);
 
-    setRepoMetrics((prev) =>
-      prev.map((repo, index) => {
-        const result = results[index];
-        if (result.status === "fulfilled") {
-          return {
-            ...repo,
-            ...result.value,
-            isLoading: false,
-            error: null,
-          };
-        } else {
-          return {
-            ...repo,
-            isLoading: false,
-            error: "Failed to fetch data",
-          };
-        }
-      })
-    );
-  }, [githubToken]);
+      if (metrics.length > 0 && metrics[0].fetchedAt) {
+        setLastUpdated(new Date(metrics[0].fetchedAt).toLocaleString());
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-card shadow-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h1 className="text-2xl font-bold text-foreground">
-                          Repository Summary Dashboard
-                        </h1>
-                        <p className="text-muted-foreground">
-                          Track development activity across all Focus Bear repositories (last 30 days)
-                        </p>
-                      </div>
-                      <Link href="/">
-                        <Button variant="outline" size="sm" className="rounded-full">
-                          DORA Metrics
-                        </Button>
-                      </Link>
-                    </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                Repository Summary Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Track development activity across all Focus Bear repositories (last 30 days)
+              </p>
+              {lastUpdated && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last updated: {lastUpdated}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchData}
+                disabled={isLoading}
+                className="rounded-full"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Link href="/">
+                <Button variant="outline" size="sm" className="rounded-full">
+                  DORA Metrics
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-6 space-y-8">
-        <Card className="shadow-md">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <label
-                  htmlFor="github-token"
-                  className="text-sm font-medium text-muted-foreground mb-2 block"
-                >
-                  GitHub Token (optional for public repos)
-                </label>
-                <Input
-                  id="github-token"
-                  type="password"
-                  value={githubToken}
-                  onChange={(e) => setGithubToken(e.target.value)}
-                  placeholder="Enter your GitHub personal access token"
-                />
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <div className="flex items-center text-destructive">
+                <AlertTriangle className="h-5 w-5 mr-2" />
+                <span>{error}</span>
               </div>
-              <div className="flex items-end">
-                <Button onClick={fetchAllRepoData} className="w-full sm:w-auto">
-                  Fetch Data
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <p className="text-sm text-muted-foreground mt-2">
+                The data is fetched automatically by a GitHub Action. If no data is available,
+                the action may not have run yet or there may be an issue with the workflow.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <SummaryCard metrics={repoMetrics} />
+        <SummaryCard metrics={repoMetrics} isLoading={isLoading} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {repoMetrics.map((metrics) => (
-            <RepoCard key={metrics.repoName} metrics={metrics} />
-          ))}
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} className="shadow-md border border-border">
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-6 w-32" />
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    {Array.from({ length: 4 }).map((_, j) => (
+                      <Skeleton key={j} className="h-24 rounded-lg" />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            repoMetrics.map((metrics) => (
+              <RepoCard key={metrics.repoName} metrics={metrics} />
+            ))
+          )}
         </div>
       </div>
     </div>

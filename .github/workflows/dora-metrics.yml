@@ -37,12 +37,19 @@ jobs:
         run: |
           python dora_pipeline.py   # this generates/updates dora.sqlite
 
-      - name: Commit and push updated SQLite DB
+      - name: Run Repo Summary script
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          python repo_summary.py   # this generates repo_summary.csv
+
+      - name: Commit and push updated data files
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add dora.json
           git add dora.sqlite
+          git add repo_summary.csv
           git commit -m "Update DORA metrics DB [skip ci]" || echo "No changes to commit"
           git push
 
