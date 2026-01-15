@@ -21,6 +21,7 @@ import RecentDeployments from "@/components/dashboard/recent-deployments";
 import TeamPerformance from "@/components/dashboard/team-performance";
 import PRPerformance from "@/components/dashboard/pr-performance";
 import { Rocket, Clock, AlertTriangle, Wrench } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Dashboard() {
   const [data, setData] = useState<DoraData | null>(null);
@@ -98,29 +99,34 @@ export default function Dashboard() {
               </h1>
               <p className="text-muted-foreground">DevOps performance insights and analytics</p>
             </div>
-            <div className="flex gap-2">
-              {[7, 30, 90].map(days => (
-                <Button
-                  key={days}
-                  onClick={() => setTimeFilter(days)}
-                  variant={timeFilter === days ? "default" : "secondary"}
-                  size="sm"
-                  data-testid={`filter-${days}days`}
-                  className="rounded-full"
-                >
-                  {days} days
-                </Button>
-              ))}
-              <Button
-                onClick={() => setTimeFilter(null)}
-                variant={timeFilter === null ? "default" : "secondary"}
-                size="sm"
-                data-testid="filter-all-time"
-                className="rounded-full"
-              >
-                All Time
-              </Button>
-            </div>
+                        <div className="flex gap-2 items-center">
+                          <Link href="/repo-summary">
+                            <Button variant="outline" size="sm" className="rounded-full mr-4">
+                              Repo Summary
+                            </Button>
+                          </Link>
+                          {[7, 30, 90].map(days => (
+                            <Button
+                              key={days}
+                              onClick={() => setTimeFilter(days)}
+                              variant={timeFilter === days ? "default" : "secondary"}
+                              size="sm"
+                              data-testid={`filter-${days}days`}
+                              className="rounded-full"
+                            >
+                              {days} days
+                            </Button>
+                          ))}
+                          <Button
+                            onClick={() => setTimeFilter(null)}
+                            variant={timeFilter === null ? "default" : "secondary"}
+                            size="sm"
+                            data-testid="filter-all-time"
+                            className="rounded-full"
+                          >
+                            All Time
+                          </Button>
+                        </div>
           </div>
         </div>
       </div>
