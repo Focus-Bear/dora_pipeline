@@ -21,10 +21,10 @@ GH_TOKEN = os.getenv("GH_TOKEN") or ""
 # Repositories to track
 REPOS = [
     {"name": "Focus-Bear/web_dashboard", "display_name": "Web Dashboard"},
-    {"name": "Focus-Bear/dora_pipeline", "display_name": "Backend"},
-    {"name": "Focus-Bear/dora_mobile", "display_name": "Mobile"},
-    {"name": "Focus-Bear/dora_mac", "display_name": "Mac"},
-    {"name": "Focus-Bear/dora_windows", "display_name": "Windows"},
+    {"name": "Focus-Bear/backend", "display_name": "Backend"},
+    {"name": "Focus-Bear/mobile-app", "display_name": "Mobile"},
+    {"name": "Focus-Bear/Mac-App", "display_name": "Mac"},
+    {"name": "Focus-Bear/windows-app-v2", "display_name": "Windows"},
 ]
 
 # Lookback period
