@@ -1,0 +1,6 @@
+repo_name,display_name,prs_opened,prs_merged,issues_ready_for_qa,issues_qa_completed,fetched_at
+Focus-Bear/web_dashboard,Web Dashboard,77,54,0,0,2026-01-16T23:07:03.113616+00:00
+Focus-Bear/dora_pipeline,Backend,1,1,0,0,2026-01-16T23:07:03.113616+00:00
+Focus-Bear/dora_mobile,Mobile,0,0,0,0,2026-01-16T23:07:03.113616+00:00
+Focus-Bear/dora_mac,Mac,0,0,0,0,2026-01-16T23:07:03.113616+00:00
+Focus-Bear/dora_windows,Windows,0,0,0,0,2026-01-16T23:07:03.113616+00:00
