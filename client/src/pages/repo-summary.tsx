@@ -176,7 +176,7 @@ export default function RepoSummary() {
     setError(null);
 
     try {
-      const response = await fetch("https://raw.githubusercontent.com/Focus-Bear/dora_pipeline/main/repo_summary.csv");
+      const response = await fetch("repo_summary.csv");
       if (!response.ok) {
         throw new Error("Failed to fetch repo summary data");
       }
