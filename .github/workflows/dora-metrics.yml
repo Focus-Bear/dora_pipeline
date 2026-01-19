@@ -50,6 +50,8 @@ jobs:
           git add dora.json
           git add dora.sqlite
           git add repo_summary.csv
+          git add repo_summary_7d.csv
+          git add repo_summary_30d.csv
           git commit -m "Update DORA metrics DB [skip ci]" || echo "No changes to commit"
           git push
 
@@ -75,7 +77,10 @@ jobs:
         NODE_ENV: production
 
     - name: Copy data files to dist
-      run: cp repo_summary.csv dist/public/
+      run: |
+        cp repo_summary.csv dist/public/
+        cp repo_summary_7d.csv dist/public/
+        cp repo_summary_30d.csv dist/public/
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
