@@ -170,15 +170,17 @@ export default function RepoSummary() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [timePeriod, setTimePeriod] = useState<7 | 30>(30);
 
-  const fetchData = async () => {
+  const fetchData = async (days: 7 | 30) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("repo_summary.csv");
+      const csvFile = `repo_summary_${days}d.csv`;
+      const response = await fetch(csvFile);
       if (!response.ok) {
-        throw new Error("Failed to fetch repo summary data");
+        throw new Error(`Failed to fetch repo summary data for ${days} days`);
       }
       const csvText = await response.text();
       const metrics = parseCSV(csvText);
@@ -195,8 +197,8 @@ export default function RepoSummary() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(timePeriod);
+  }, [timePeriod]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -208,7 +210,7 @@ export default function RepoSummary() {
                 Repository Summary Dashboard
               </h1>
               <p className="text-muted-foreground">
-                Track development activity across all Focus Bear repositories (last 30 days)
+                Track development activity across all Focus Bear repositories (last {timePeriod} days)
               </p>
               {lastUpdated && (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -217,10 +219,21 @@ export default function RepoSummary() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {[7, 30].map((days) => (
+                <Button
+                  key={days}
+                  onClick={() => setTimePeriod(days as 7 | 30)}
+                  variant={timePeriod === days ? "default" : "secondary"}
+                  size="sm"
+                  className="rounded-full"
+                >
+                  {days} days
+                </Button>
+              ))}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchData}
+                onClick={() => fetchData(timePeriod)}
                 disabled={isLoading}
                 className="rounded-full"
               >
