@@ -241,7 +241,7 @@ export default function RepoSummary() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Link href="/">
+              <Link href="#/">
                 <Button variant="outline" size="sm" className="rounded-full">
                   DORA Metrics
                 </Button>

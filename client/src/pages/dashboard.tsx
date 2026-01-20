@@ -100,7 +100,7 @@ export default function Dashboard() {
               <p className="text-muted-foreground">DevOps performance insights and analytics</p>
             </div>
                         <div className="flex gap-2 items-center">
-                          <Link href="/repo-summary">
+                          <Link href="#/repo-summary">
                             <Button variant="outline" size="sm" className="rounded-full mr-4">
                               Repo Summary
                             </Button>
