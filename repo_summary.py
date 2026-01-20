@@ -21,22 +21,24 @@ NOW_UTC = datetime.now(UTC)
 # GitHub token from environment
 GH_TOKEN = os.getenv("GH_TOKEN") or ""
 
-# Repositories to track (with their display names)
+# Repositories to track (with their display names and project board numbers)
+# Each repo has its own project board at https://github.com/orgs/Focus-Bear/projects/{project_number}
 REPOS = [
-    {"name": "Focus-Bear/web_dashboard", "display_name": "Web Dashboard", "short_name": "web_dashboard"},
-    {"name": "Focus-Bear/backend", "display_name": "Backend", "short_name": "backend"},
-    {"name": "Focus-Bear/mobile-app", "display_name": "Mobile", "short_name": "mobile-app"},
-    {"name": "Focus-Bear/Mac-App", "display_name": "Mac", "short_name": "Mac-App"},
-    {"name": "Focus-Bear/windows-app-v2", "display_name": "Windows", "short_name": "windows-app-v2"},
+    {"name": "Focus-Bear/web_dashboard", "display_name": "Web Dashboard", "short_name": "web_dashboard", "project_number": 6},
+    {"name": "Focus-Bear/backend", "display_name": "Backend", "short_name": "backend", "project_number": 4},
+    {"name": "Focus-Bear/mobile-app", "display_name": "Mobile", "short_name": "mobile-app", "project_number": 3},
+    {"name": "Focus-Bear/Mac-App", "display_name": "Mac", "short_name": "Mac-App", "project_number": 1},
+    {"name": "Focus-Bear/windows-app-v2", "display_name": "Windows", "short_name": "windows-app-v2", "project_number": 5},
 ]
 
-# GitHub Project V2 settings (org-level project board)
+# GitHub organization
 GH_ORG = "Focus-Bear"
-GH_PROJECT_NUMBER = 4  # From URL: https://github.com/orgs/Focus-Bear/projects/4
 
 # QA status field values in the project board
-QA_READY_STATUSES = ["Deployed awaiting QA", "In Review"]
-QA_COMPLETED_STATUSES = ["QA'd"]
+# "Ready for QA" shows total count of issues in these statuses (no time filtering)
+QA_READY_STATUSES = ["Ready for QA", "Deployed awaiting QA", "In Review"]
+# "QA Completed" shows issues moved to these statuses within the time period
+QA_COMPLETED_STATUSES = ["QA'd", "QA Passed", "Done"]
 
 # Time periods to generate reports for
 TIME_PERIODS = [7, 30]
@@ -92,14 +94,14 @@ def gh_get_paged(url: str, params: Optional[Dict[str, Any]] = None, cap_pages: i
     return out
 
 
-def fetch_project_issues() -> Dict[str, List[Dict[str, Any]]]:
+def fetch_project_issues_for_repo(project_number: int, repo_short_name: str) -> List[Dict[str, Any]]:
     """
-    Fetch all issues from the GitHub Project V2 board using GraphQL API.
-    Returns a dict mapping repo short name to list of issues with their statuses and updated_at.
+    Fetch all issues from a specific GitHub Project V2 board using GraphQL API.
+    Returns a list of issues with their statuses and updated_at.
     """
     if not GH_TOKEN:
         log.warning("GH_TOKEN not set, cannot fetch project issues")
-        return {}
+        return []
 
     query = """
     query($org: String!, $project: Int!, $first: Int!, $after: String) {
@@ -140,25 +142,24 @@ def fetch_project_issues() -> Dict[str, List[Dict[str, Any]]]:
     """
 
     headers = get_graphql_headers()
-    variables = {"org": GH_ORG, "project": GH_PROJECT_NUMBER, "first": 100, "after": None}
+    variables = {"org": GH_ORG, "project": project_number, "first": 100, "after": None}
     
-    # Collect all issues by repo
-    issues_by_repo: Dict[str, List[Dict[str, Any]]] = {repo["short_name"]: [] for repo in REPOS}
+    issues: List[Dict[str, Any]] = []
     
     while True:
         r = requests.post(BASE_GH_GRAPHQL, headers=headers, json={"query": query, "variables": variables})
         if r.status_code != 200:
-            log.error("GraphQL request failed: %s - %s", r.status_code, r.text)
+            log.error("GraphQL request failed for project %d: %s - %s", project_number, r.status_code, r.text)
             break
         
         data = r.json()
         if "errors" in data:
-            log.error("GraphQL errors: %s", data["errors"])
+            log.error("GraphQL errors for project %d: %s", project_number, data["errors"])
             break
             
         project = data.get("data", {}).get("organization", {}).get("projectV2")
         if not project:
-            log.warning("No project found for org=%s, project=%d", GH_ORG, GH_PROJECT_NUMBER)
+            log.warning("No project found for org=%s, project=%d", GH_ORG, project_number)
             break
 
         for item in project["items"]["nodes"]:
@@ -166,8 +167,6 @@ def fetch_project_issues() -> Dict[str, List[Dict[str, Any]]]:
             if not content or content.get("__typename") != "Issue":
                 continue
                 
-            repo_info = content.get("repository", {})
-            repo_name = repo_info.get("name", "")
             issue_number = content.get("number")
             issue_updated_at = content.get("updatedAt")
             
@@ -179,20 +178,38 @@ def fetch_project_issues() -> Dict[str, List[Dict[str, Any]]]:
                     status = fv.get("name")
                     status_updated_at = fv.get("updatedAt")
             
-            if repo_name and issue_number:
-                if repo_name in issues_by_repo:
-                    issues_by_repo[repo_name].append({
-                        "number": issue_number,
-                        "status": status,
-                        "updated_at": issue_updated_at,
-                        "status_updated_at": status_updated_at,
-                    })
+            if issue_number:
+                issues.append({
+                    "number": issue_number,
+                    "status": status,
+                    "updated_at": issue_updated_at,
+                    "status_updated_at": status_updated_at,
+                })
 
         page_info = project["items"]["pageInfo"]
         if page_info["hasNextPage"]:
             variables["after"] = page_info["endCursor"]
         else:
             break
+    
+    return issues
+
+
+def fetch_all_project_issues() -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Fetch issues from all repo-specific GitHub Project V2 boards.
+    Returns a dict mapping repo short name to list of issues with their statuses and updated_at.
+    """
+    issues_by_repo: Dict[str, List[Dict[str, Any]]] = {}
+    
+    for repo in REPOS:
+        short_name = repo["short_name"]
+        project_number = repo["project_number"]
+        
+        log.info("Fetching issues from project #%d for %s...", project_number, short_name)
+        issues = fetch_project_issues_for_repo(project_number, short_name)
+        issues_by_repo[short_name] = issues
+        log.info("  Found %d issues for %s", len(issues), short_name)
     
     return issues_by_repo
 
@@ -221,8 +238,10 @@ def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
 
 def count_qa_issues(issues: List[Dict[str, Any]], lookback_days: int) -> Dict[str, int]:
     """
-    Count issues by QA status within the lookback period.
-    Uses the status_updated_at or updated_at to filter by time period.
+    Count issues by QA status.
+    
+    - Ready for QA: Total count of issues currently in QA_READY_STATUSES (no time filtering)
+    - QA Completed: Issues moved to QA_COMPLETED_STATUSES within the lookback period
     """
     cutoff_date = NOW_UTC - timedelta(days=lookback_days)
     
@@ -233,21 +252,22 @@ def count_qa_issues(issues: List[Dict[str, Any]], lookback_days: int) -> Dict[st
         status = issue.get("status")
         if not status:
             continue
-            
-        # Use status_updated_at if available, otherwise use updated_at
-        updated_str = issue.get("status_updated_at") or issue.get("updated_at")
-        if updated_str:
-            try:
-                updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
-                if updated_at < cutoff_date:
-                    continue
-            except (ValueError, TypeError):
-                pass
         
+        # Ready for QA: Count ALL issues currently in these statuses (no time filtering)
         if status in QA_READY_STATUSES:
             issues_ready_for_qa += 1
+        
+        # QA Completed: Only count issues that were moved to completed status within the time period
         elif status in QA_COMPLETED_STATUSES:
-            issues_qa_completed += 1
+            # Use status_updated_at if available, otherwise use updated_at
+            updated_str = issue.get("status_updated_at") or issue.get("updated_at")
+            if updated_str:
+                try:
+                    updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+                    if updated_at >= cutoff_date:
+                        issues_qa_completed += 1
+                except (ValueError, TypeError):
+                    pass
     
     return {
         "issues_ready_for_qa": issues_ready_for_qa,
@@ -331,12 +351,9 @@ def main():
     if not GH_TOKEN:
         log.warning("GH_TOKEN not set. API rate limits will be very low.")
     
-    # Fetch all project issues once (to avoid multiple GraphQL calls)
-    log.info("Fetching issues from GitHub Project V2 board...")
-    issues_by_repo = fetch_project_issues()
-    
-    for repo_name, issues in issues_by_repo.items():
-        log.info("  Found %d issues for %s", len(issues), repo_name)
+    # Fetch issues from all repo-specific project boards
+    log.info("Fetching issues from GitHub Project V2 boards...")
+    issues_by_repo = fetch_all_project_issues()
     
     # Generate reports for each time period
     for days in TIME_PERIODS:
