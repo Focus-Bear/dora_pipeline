@@ -35,8 +35,10 @@ GH_ORG = "Focus-Bear"
 GH_PROJECT_NUMBER = 4  # From URL: https://github.com/orgs/Focus-Bear/projects/4
 
 # QA status field values in the project board
-QA_READY_STATUSES = ["Deployed awaiting QA", "In Review"]
-QA_COMPLETED_STATUSES = ["QA'd"]
+# "Ready for QA" shows total count of issues in these statuses (no time filtering)
+QA_READY_STATUSES = ["Ready for QA", "Deployed awaiting QA", "In Review"]
+# "QA Completed" shows issues moved to these statuses within the time period
+QA_COMPLETED_STATUSES = ["QA'd", "QA Passed", "Done"]
 
 # Time periods to generate reports for
 TIME_PERIODS = [7, 30]
@@ -221,8 +223,10 @@ def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
 
 def count_qa_issues(issues: List[Dict[str, Any]], lookback_days: int) -> Dict[str, int]:
     """
-    Count issues by QA status within the lookback period.
-    Uses the status_updated_at or updated_at to filter by time period.
+    Count issues by QA status.
+    
+    - Ready for QA: Total count of issues currently in QA_READY_STATUSES (no time filtering)
+    - QA Completed: Issues moved to QA_COMPLETED_STATUSES within the lookback period
     """
     cutoff_date = NOW_UTC - timedelta(days=lookback_days)
     
@@ -233,21 +237,22 @@ def count_qa_issues(issues: List[Dict[str, Any]], lookback_days: int) -> Dict[st
         status = issue.get("status")
         if not status:
             continue
-            
-        # Use status_updated_at if available, otherwise use updated_at
-        updated_str = issue.get("status_updated_at") or issue.get("updated_at")
-        if updated_str:
-            try:
-                updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
-                if updated_at < cutoff_date:
-                    continue
-            except (ValueError, TypeError):
-                pass
         
+        # Ready for QA: Count ALL issues currently in these statuses (no time filtering)
         if status in QA_READY_STATUSES:
             issues_ready_for_qa += 1
+        
+        # QA Completed: Only count issues that were moved to completed status within the time period
         elif status in QA_COMPLETED_STATUSES:
-            issues_qa_completed += 1
+            # Use status_updated_at if available, otherwise use updated_at
+            updated_str = issue.get("status_updated_at") or issue.get("updated_at")
+            if updated_str:
+                try:
+                    updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+                    if updated_at >= cutoff_date:
+                        issues_qa_completed += 1
+                except (ValueError, TypeError):
+                    pass
     
     return {
         "issues_ready_for_qa": issues_ready_for_qa,
