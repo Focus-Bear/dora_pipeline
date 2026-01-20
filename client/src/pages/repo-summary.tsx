@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, GitPullRequest, GitMerge, CheckCircle, Clock, RefreshCw } from "lucide-react";
-import { Link } from "wouter";
 
 interface RepoMetrics {
   repoName: string;
@@ -208,10 +207,10 @@ export default function RepoSummary() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                Repository Summary Dashboard
+                Overall Velocity Report
               </h1>
               <p className="text-muted-foreground">
-                Track development activity across all Focus Bear repositories (last {timePeriod} days)
+                Track development velocity across all Focus Bear repositories (last {timePeriod} days)
               </p>
               {lastUpdated && (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -241,11 +240,11 @@ export default function RepoSummary() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Link href="#/">
+              <a href="#/">
                 <Button variant="outline" size="sm" className="rounded-full">
                   DORA Metrics
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
         </div>

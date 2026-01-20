@@ -11,7 +11,7 @@ function AppRoutes() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/repo-summary" component={RepoSummary} />
+      <Route path="/overall-velocity-report" component={RepoSummary} />
       <Route component={Dashboard} />
     </Switch>
   );
