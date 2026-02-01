@@ -1,6 +1,6 @@
 repo_name,display_name,prs_opened,prs_merged,issues_ready_for_qa,issues_qa_completed,fetched_at
-Focus-Bear/web_dashboard,Web Dashboard,39,37,142,0,2026-01-30T12:11:02.384268+00:00
-Focus-Bear/backend,Backend,4,1,21,1,2026-01-30T12:11:02.384268+00:00
-Focus-Bear/mobile-app,Mobile,7,5,2,0,2026-01-30T12:11:02.384268+00:00
-Focus-Bear/Mac-App,Mac,2,2,575,0,2026-01-30T12:11:02.384268+00:00
-Focus-Bear/windows-app-v2,Windows,2,2,134,0,2026-01-30T12:11:02.384268+00:00
+Focus-Bear/web_dashboard,Web Dashboard,34,34,132,0,2026-01-31T12:08:19.375596+00:00
+Focus-Bear/backend,Backend,3,1,21,1,2026-01-31T12:08:19.375596+00:00
+Focus-Bear/mobile-app,Mobile,9,6,2,0,2026-01-31T12:08:19.375596+00:00
+Focus-Bear/Mac-App,Mac,2,2,574,0,2026-01-31T12:08:19.375596+00:00
+Focus-Bear/windows-app-v2,Windows,3,2,133,0,2026-01-31T12:08:19.375596+00:00
