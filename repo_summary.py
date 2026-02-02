@@ -228,7 +228,12 @@ def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
     ]
     
     prs_opened = len(recent_prs)
-    prs_merged = len([pr for pr in recent_prs if pr.get("merged_at")])
+    
+    # Filter PRs merged in the lookback period (by merge date, not creation date)
+    prs_merged = len([
+        pr for pr in prs
+        if pr.get("merged_at") and datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00")) >= cutoff_date
+    ])
     
     return {
         "prs_opened": prs_opened,
