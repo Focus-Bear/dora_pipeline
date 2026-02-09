@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, GitPullRequest, GitMerge, CheckCircle, Clock, RefreshCw } from "lucide-react";
+import { AlertTriangle, GitPullRequest, GitMerge, CheckCircle, Clock, RefreshCw, Rocket } from "lucide-react";
 
 interface RepoMetrics {
   repoName: string;
@@ -11,6 +11,7 @@ interface RepoMetrics {
   prsMerged: number;
   issuesReadyForQA: number;
   issuesQACompleted: number;
+  daysSinceLastRelease: number | null;
   fetchedAt: string;
 }
 
@@ -35,6 +36,7 @@ function parseCSV(csvText: string): RepoMetrics[] {
       prsMerged: parseInt(row["prs_merged"] || "0", 10),
       issuesReadyForQA: parseInt(row["issues_ready_for_qa"] || "0", 10),
       issuesQACompleted: parseInt(row["issues_qa_completed"] || "0", 10),
+      daysSinceLastRelease: row["days_since_last_release"] ? parseInt(row["days_since_last_release"], 10) : null,
       fetchedAt: row["fetched_at"] || "",
     });
   }
@@ -47,16 +49,20 @@ function MetricCard({
   value,
   icon: Icon,
   color,
+  suffix,
 }: {
   title: string;
-  value: number;
+  value: number | string;
   icon: React.ElementType;
   color: string;
+  suffix?: string;
 }) {
   return (
     <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-muted/50">
       <Icon className={`h-5 w-5 mb-2 ${color}`} />
-      <span className="text-2xl font-bold text-foreground">{value}</span>
+      <span className="text-2xl font-bold text-foreground">
+        {value}{suffix && <span className="text-sm font-normal text-muted-foreground ml-1">{suffix}</span>}
+      </span>
       <span className="text-xs text-muted-foreground text-center">{title}</span>
     </div>
   );
@@ -89,6 +95,15 @@ function RepoCardContent({ metrics }: { metrics: RepoMetrics }) {
         icon={CheckCircle}
         color="text-green-600"
       />
+      {metrics.daysSinceLastRelease !== null && (
+        <MetricCard
+          title="Days Since Release"
+          value={metrics.daysSinceLastRelease}
+          icon={Rocket}
+          color="text-orange-500"
+          suffix="d"
+        />
+      )}
     </div>
   );
 }
@@ -117,6 +132,13 @@ function SummaryCard({ metrics, isLoading }: { metrics: RepoMetrics[]; isLoading
     { prsOpened: 0, prsMerged: 0, issuesReadyForQA: 0, issuesQACompleted: 0 }
   );
 
+  const avgDaysSinceRelease = (() => {
+    const withRelease = metrics.filter((m) => m.daysSinceLastRelease !== null);
+    if (withRelease.length === 0) return null;
+    const sum = withRelease.reduce((s, m) => s + (m.daysSinceLastRelease ?? 0), 0);
+    return Math.round(sum / withRelease.length);
+  })();
+
   return (
     <Card className="shadow-lg border-2 border-primary/20">
       <CardHeader>
@@ -126,13 +148,13 @@ function SummaryCard({ metrics, isLoading }: { metrics: RepoMetrics[]; isLoading
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-lg" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <MetricCard
               title="Total PRs Opened"
               value={totals.prsOpened}
@@ -157,6 +179,15 @@ function SummaryCard({ metrics, isLoading }: { metrics: RepoMetrics[]; isLoading
               icon={CheckCircle}
               color="text-green-600"
             />
+            {avgDaysSinceRelease !== null && (
+              <MetricCard
+                title="Avg Days Since Release"
+                value={avgDaysSinceRelease}
+                icon={Rocket}
+                color="text-orange-500"
+                suffix="d"
+              />
+            )}
           </div>
         )}
       </CardContent>
