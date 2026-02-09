@@ -9,6 +9,7 @@ Generates separate CSV files for different time periods (7 days and 30 days).
 
 import os
 import csv
+import math
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -224,28 +225,76 @@ def fetch_all_project_issues() -> Dict[str, List[Dict[str, Any]]]:
 def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
     """Fetch PR metrics for a single repository within the lookback period."""
     cutoff_date = NOW_UTC - timedelta(days=lookback_days)
-    
-    # Fetch PRs
-    prs = gh_get_paged(f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "all"})
-    
-    # Filter PRs created in the lookback period
-    recent_prs = [
-        pr for pr in prs
-        if pr.get("created_at") and datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00")) >= cutoff_date
-    ]
-    
-    prs_opened = len(recent_prs)
-    
-    # Filter PRs merged in the lookback period (by merge date, not creation date)
+
+    prs_open = len(gh_get_paged(
+        f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "open"}
+    ))
+
+    closed_prs = gh_get_paged(
+        f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "closed"}
+    )
     prs_merged = len([
-        pr for pr in prs
+        pr for pr in closed_prs
         if pr.get("merged_at") and datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00")) >= cutoff_date
     ])
-    
+
     return {
-        "prs_opened": prs_opened,
+        "prs_open": prs_open,
         "prs_merged": prs_merged,
     }
+
+
+def fetch_days_since_last_release(repo_name: str) -> Optional[int]:
+    """Fetch the latest GitHub release and return the number of days since it was published."""
+    headers = get_headers()
+    url = f"{BASE_GH}/repos/{repo_name}/releases/latest"
+    try:
+        r = requests.get(url, headers=headers)
+        if r.status_code == 404:
+            log.info("No releases found for %s, trying tags...", repo_name)
+            return _days_since_last_tag(repo_name)
+        if r.status_code != 200:
+            log.warning("Failed to fetch latest release for %s: %s", repo_name, r.status_code)
+            return None
+        data = r.json()
+        published_at = data.get("published_at") or data.get("created_at")
+        if not published_at:
+            return None
+        release_dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        delta = NOW_UTC - release_dt
+        return max(0, math.floor(delta.total_seconds() / 86400))
+    except Exception as e:
+        log.warning("Error fetching release for %s: %s", repo_name, e)
+        return None
+
+
+def _days_since_last_tag(repo_name: str) -> Optional[int]:
+    """Fallback: use the latest tag's commit date if no GitHub releases exist."""
+    headers = get_headers()
+    url = f"{BASE_GH}/repos/{repo_name}/tags"
+    try:
+        r = requests.get(url, headers=headers, params={"per_page": 1})
+        if r.status_code != 200:
+            return None
+        tags = r.json()
+        if not tags:
+            return None
+        commit_url = (tags[0].get("commit") or {}).get("url")
+        if not commit_url:
+            return None
+        cr = requests.get(commit_url, headers=headers)
+        if cr.status_code != 200:
+            return None
+        commit_data = cr.json()
+        date_str = (commit_data.get("commit") or {}).get("committer", {}).get("date")
+        if not date_str:
+            return None
+        tag_dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        delta = NOW_UTC - tag_dt
+        return max(0, math.floor(delta.total_seconds() / 86400))
+    except Exception as e:
+        log.warning("Error fetching tags for %s: %s", repo_name, e)
+        return None
 
 
 def fetch_issue_timeline(repo_name: str, issue_number: int) -> List[Dict[str, Any]]:
@@ -391,33 +440,38 @@ def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str,
             # Count QA issues from project board data
             repo_issues = issues_by_repo.get(short_name, [])
             qa_metrics = count_qa_issues(repo_issues, lookback_days, repo_name=repo_name)
+
+            days_since_release = fetch_days_since_last_release(repo_name)
             
             results.append({
                 "repo_name": repo_name,
                 "display_name": display_name,
-                "prs_opened": pr_metrics["prs_opened"],
+                "prs_open": pr_metrics["prs_open"],
                 "prs_merged": pr_metrics["prs_merged"],
                 "issues_ready_for_qa": qa_metrics["issues_ready_for_qa"],
                 "issues_qa_completed": qa_metrics["issues_qa_completed"],
+                "days_since_last_release": days_since_release if days_since_release is not None else "",
                 "fetched_at": NOW_UTC.isoformat(),
             })
             log.info(
-                "  %s: PRs opened=%d, merged=%d, ready for QA=%d, QA completed=%d",
+                "  %s: PRs open=%d, merged=%d, ready for QA=%d, QA completed=%d, days since release=%s",
                 display_name,
-                pr_metrics["prs_opened"],
+                pr_metrics["prs_open"],
                 pr_metrics["prs_merged"],
                 qa_metrics["issues_ready_for_qa"],
                 qa_metrics["issues_qa_completed"],
+                days_since_release if days_since_release is not None else "N/A",
             )
         except Exception as e:
             log.error("Failed to fetch metrics for %s: %s", repo_name, e)
             results.append({
                 "repo_name": repo_name,
                 "display_name": display_name,
-                "prs_opened": 0,
+                "prs_open": 0,
                 "prs_merged": 0,
                 "issues_ready_for_qa": 0,
                 "issues_qa_completed": 0,
+                "days_since_last_release": "",
                 "fetched_at": NOW_UTC.isoformat(),
                 "error": str(e),
             })
@@ -430,10 +484,11 @@ def write_csv(results: List[Dict[str, Any]], output_file: str):
     fieldnames = [
         "repo_name",
         "display_name",
-        "prs_opened",
+        "prs_open",
         "prs_merged",
         "issues_ready_for_qa",
         "issues_qa_completed",
+        "days_since_last_release",
         "fetched_at",
     ]
     
@@ -463,15 +518,15 @@ def main():
         write_csv(results, output_file)
         
         # Calculate totals
-        total_prs_opened = sum(r["prs_opened"] for r in results)
+        total_prs_open = sum(r["prs_open"] for r in results)
         total_prs_merged = sum(r["prs_merged"] for r in results)
         total_ready_for_qa = sum(r["issues_ready_for_qa"] for r in results)
         total_qa_completed = sum(r["issues_qa_completed"] for r in results)
         
         log.info(
-            "Totals (%dd): PRs opened=%d, merged=%d, ready for QA=%d, QA completed=%d",
+            "Totals (%dd): PRs open=%d, merged=%d, ready for QA=%d, QA completed=%d",
             days,
-            total_prs_opened,
+            total_prs_open,
             total_prs_merged,
             total_ready_for_qa,
             total_qa_completed,
