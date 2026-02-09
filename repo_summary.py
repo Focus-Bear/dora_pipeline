@@ -38,7 +38,7 @@ GH_ORG = "Focus-Bear"
 # "Ready for QA" shows total count of issues in these statuses (no time filtering)
 QA_READY_STATUSES = ["Ready for QA", "Deployed awaiting QA", "In Review"]
 # "QA Completed" shows issues moved to these statuses within the time period
-QA_COMPLETED_STATUSES = ["QA'd", "QA Passed", "Done"]
+QA_COMPLETED_STATUSES = ["QA'd", "QA Passed", "Done", "QA Passed/Done"]
 
 # Time periods to generate reports for
 TIME_PERIODS = [7, 30]
@@ -127,6 +127,11 @@ def fetch_project_issues_for_repo(project_number: int, repo_short_name: str) -> 
                   ... on ProjectV2ItemFieldSingleSelectValue {
                     name
                     updatedAt
+                    field {
+                      ... on ProjectV2SingleSelectField {
+                        name
+                      }
+                    }
                   }
                 }
               }
@@ -170,11 +175,13 @@ def fetch_project_issues_for_repo(project_number: int, repo_short_name: str) -> 
             issue_number = content.get("number")
             issue_updated_at = content.get("updatedAt")
             
-            # Get the status from field values
             status = None
             status_updated_at = None
             for fv in item.get("fieldValues", {}).get("nodes", []):
-                if fv and fv.get("name"):
+                if not fv or not fv.get("name"):
+                    continue
+                field_name = (fv.get("field") or {}).get("name", "")
+                if field_name == "Status":
                     status = fv.get("name")
                     status_updated_at = fv.get("updatedAt")
             
@@ -241,43 +248,129 @@ def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
     }
 
 
-def count_qa_issues(issues: List[Dict[str, Any]], lookback_days: int) -> Dict[str, int]:
+def fetch_issue_timeline(repo_name: str, issue_number: int) -> List[Dict[str, Any]]:
+    """Fetch timeline events for a single issue via REST API."""
+    headers = get_headers()
+    headers["Accept"] = "application/vnd.github+json"
+    url = f"{BASE_GH}/repos/{repo_name}/issues/{issue_number}/timeline"
+    events: List[Dict[str, Any]] = []
+    page = 1
+    while page <= 5:
+        r = requests.get(url, headers=headers, params={"per_page": 100, "page": page})
+        if r.status_code != 200:
+            log.debug("Timeline fetch failed for %s#%d: %s", repo_name, issue_number, r.status_code)
+            break
+        batch = r.json()
+        if not isinstance(batch, list) or not batch:
+            break
+        events.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return events
+
+
+def detect_qa_completed_from_timeline(
+    repo_name: str,
+    issue_numbers: List[int],
+    lookback_days: int,
+    already_counted: set,
+) -> int:
     """
-    Count issues by QA status.
-    
-    - Ready for QA: Total count of issues currently in QA_READY_STATUSES (no time filtering)
-    - QA Completed: Issues moved to QA_COMPLETED_STATUSES within the lookback period
+    Detect QA completion transitions by inspecting issue timeline events.
+    Catches issues that were moved to a QA completed column on the project board,
+    even if they have since been moved to another status.
     """
     cutoff_date = NOW_UTC - timedelta(days=lookback_days)
-    
+    qa_completed_via_timeline = 0
+
+    for issue_number in issue_numbers:
+        if issue_number in already_counted:
+            continue
+        try:
+            events = fetch_issue_timeline(repo_name, issue_number)
+            for event in events:
+                event_type = event.get("event", "")
+                if event_type == "moved_columns_in_project":
+                    column_name = (event.get("project_card") or {}).get("column_name", "")
+                    if column_name in QA_COMPLETED_STATUSES:
+                        created_at_str = event.get("created_at", "")
+                        if created_at_str:
+                            event_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                            if event_time >= cutoff_date:
+                                qa_completed_via_timeline += 1
+                                break
+        except Exception as e:
+            log.debug("Timeline check failed for %s#%d: %s", repo_name, issue_number, e)
+
+    return qa_completed_via_timeline
+
+
+def count_qa_issues(
+    issues: List[Dict[str, Any]],
+    lookback_days: int,
+    repo_name: Optional[str] = None,
+) -> Dict[str, int]:
+    """
+    Count issues by QA status.
+
+    - Ready for QA: Total count of issues currently in QA_READY_STATUSES (no time filtering)
+    - QA Completed: Issues that transitioned to QA_COMPLETED_STATUSES within the lookback period.
+      Detected via:
+        1. Current status field value and its updatedAt timestamp (from project board GraphQL)
+        2. Issue timeline events showing project board column movements (REST API fallback
+           for issues that were moved to QA completed then moved elsewhere)
+    """
+    cutoff_date = NOW_UTC - timedelta(days=lookback_days)
+
     issues_ready_for_qa = 0
     issues_qa_completed = 0
-    
+    qa_counted_numbers: set = set()
+
     for issue in issues:
         status = issue.get("status")
         if not status:
             continue
-        
-        # Ready for QA: Count ALL issues currently in these statuses (no time filtering)
+
         if status in QA_READY_STATUSES:
             issues_ready_for_qa += 1
-        
-        # QA Completed: Only count issues that were moved to completed status within the time period
+
         elif status in QA_COMPLETED_STATUSES:
-            # Use status_updated_at if available, otherwise use updated_at
             updated_str = issue.get("status_updated_at") or issue.get("updated_at")
             if updated_str:
                 try:
                     updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
                     if updated_at >= cutoff_date:
                         issues_qa_completed += 1
+                        qa_counted_numbers.add(issue.get("number"))
                 except (ValueError, TypeError):
                     pass
-    
+
+    if repo_name:
+        recently_updated = [
+            issue["number"]
+            for issue in issues
+            if issue.get("number") and issue.get("updated_at")
+            and _is_within_cutoff(issue["updated_at"], cutoff_date)
+        ]
+        if recently_updated:
+            timeline_count = detect_qa_completed_from_timeline(
+                repo_name, recently_updated, lookback_days, qa_counted_numbers,
+            )
+            issues_qa_completed += timeline_count
+
     return {
         "issues_ready_for_qa": issues_ready_for_qa,
         "issues_qa_completed": issues_qa_completed,
     }
+
+
+def _is_within_cutoff(date_str: str, cutoff_date: datetime) -> bool:
+    try:
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return dt >= cutoff_date
+    except (ValueError, TypeError):
+        return False
 
 
 def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
@@ -297,7 +390,7 @@ def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str,
             
             # Count QA issues from project board data
             repo_issues = issues_by_repo.get(short_name, [])
-            qa_metrics = count_qa_issues(repo_issues, lookback_days)
+            qa_metrics = count_qa_issues(repo_issues, lookback_days, repo_name=repo_name)
             
             results.append({
                 "repo_name": repo_name,
