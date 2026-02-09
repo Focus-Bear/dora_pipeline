@@ -225,26 +225,21 @@ def fetch_all_project_issues() -> Dict[str, List[Dict[str, Any]]]:
 def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
     """Fetch PR metrics for a single repository within the lookback period."""
     cutoff_date = NOW_UTC - timedelta(days=lookback_days)
-    
-    # Fetch PRs
-    prs = gh_get_paged(f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "all"})
-    
-    # Filter PRs created in the lookback period
-    recent_prs = [
-        pr for pr in prs
-        if pr.get("created_at") and datetime.fromisoformat(pr["created_at"].replace("Z", "+00:00")) >= cutoff_date
-    ]
-    
-    prs_opened = len(recent_prs)
-    
-    # Filter PRs merged in the lookback period (by merge date, not creation date)
+
+    prs_open = len(gh_get_paged(
+        f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "open"}
+    ))
+
+    closed_prs = gh_get_paged(
+        f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "closed"}
+    )
     prs_merged = len([
-        pr for pr in prs
+        pr for pr in closed_prs
         if pr.get("merged_at") and datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00")) >= cutoff_date
     ])
-    
+
     return {
-        "prs_opened": prs_opened,
+        "prs_open": prs_open,
         "prs_merged": prs_merged,
     }
 
@@ -451,7 +446,7 @@ def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str,
             results.append({
                 "repo_name": repo_name,
                 "display_name": display_name,
-                "prs_opened": pr_metrics["prs_opened"],
+                "prs_open": pr_metrics["prs_open"],
                 "prs_merged": pr_metrics["prs_merged"],
                 "issues_ready_for_qa": qa_metrics["issues_ready_for_qa"],
                 "issues_qa_completed": qa_metrics["issues_qa_completed"],
@@ -459,9 +454,9 @@ def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str,
                 "fetched_at": NOW_UTC.isoformat(),
             })
             log.info(
-                "  %s: PRs opened=%d, merged=%d, ready for QA=%d, QA completed=%d, days since release=%s",
+                "  %s: PRs open=%d, merged=%d, ready for QA=%d, QA completed=%d, days since release=%s",
                 display_name,
-                pr_metrics["prs_opened"],
+                pr_metrics["prs_open"],
                 pr_metrics["prs_merged"],
                 qa_metrics["issues_ready_for_qa"],
                 qa_metrics["issues_qa_completed"],
@@ -472,7 +467,7 @@ def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str,
             results.append({
                 "repo_name": repo_name,
                 "display_name": display_name,
-                "prs_opened": 0,
+                "prs_open": 0,
                 "prs_merged": 0,
                 "issues_ready_for_qa": 0,
                 "issues_qa_completed": 0,
@@ -489,7 +484,7 @@ def write_csv(results: List[Dict[str, Any]], output_file: str):
     fieldnames = [
         "repo_name",
         "display_name",
-        "prs_opened",
+        "prs_open",
         "prs_merged",
         "issues_ready_for_qa",
         "issues_qa_completed",
@@ -523,15 +518,15 @@ def main():
         write_csv(results, output_file)
         
         # Calculate totals
-        total_prs_opened = sum(r["prs_opened"] for r in results)
+        total_prs_open = sum(r["prs_open"] for r in results)
         total_prs_merged = sum(r["prs_merged"] for r in results)
         total_ready_for_qa = sum(r["issues_ready_for_qa"] for r in results)
         total_qa_completed = sum(r["issues_qa_completed"] for r in results)
         
         log.info(
-            "Totals (%dd): PRs opened=%d, merged=%d, ready for QA=%d, QA completed=%d",
+            "Totals (%dd): PRs open=%d, merged=%d, ready for QA=%d, QA completed=%d",
             days,
-            total_prs_opened,
+            total_prs_open,
             total_prs_merged,
             total_ready_for_qa,
             total_qa_completed,

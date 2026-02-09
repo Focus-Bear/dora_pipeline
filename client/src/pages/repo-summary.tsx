@@ -7,7 +7,7 @@ import { AlertTriangle, GitPullRequest, GitMerge, CheckCircle, Clock, RefreshCw,
 interface RepoMetrics {
   repoName: string;
   displayName: string;
-  prsOpened: number;
+  prsOpen: number;
   prsMerged: number;
   issuesReadyForQA: number;
   issuesQACompleted: number;
@@ -32,7 +32,7 @@ function parseCSV(csvText: string): RepoMetrics[] {
     results.push({
       repoName: row["repo_name"] || "",
       displayName: row["display_name"] || "",
-      prsOpened: parseInt(row["prs_opened"] || "0", 10),
+      prsOpen: parseInt(row["prs_open"] || "0", 10),
       prsMerged: parseInt(row["prs_merged"] || "0", 10),
       issuesReadyForQA: parseInt(row["issues_ready_for_qa"] || "0", 10),
       issuesQACompleted: parseInt(row["issues_qa_completed"] || "0", 10),
@@ -72,8 +72,8 @@ function RepoCardContent({ metrics }: { metrics: RepoMetrics }) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <MetricCard
-        title="PRs Opened"
-        value={metrics.prsOpened}
+        title="PRs Open"
+        value={metrics.prsOpen}
         icon={GitPullRequest}
         color="text-primary"
       />
@@ -124,12 +124,12 @@ function RepoCard({ metrics }: { metrics: RepoMetrics }) {
 function SummaryCard({ metrics, isLoading }: { metrics: RepoMetrics[]; isLoading: boolean }) {
   const totals = metrics.reduce(
     (acc, repo) => ({
-      prsOpened: acc.prsOpened + repo.prsOpened,
+      prsOpen: acc.prsOpen + repo.prsOpen,
       prsMerged: acc.prsMerged + repo.prsMerged,
       issuesReadyForQA: acc.issuesReadyForQA + repo.issuesReadyForQA,
       issuesQACompleted: acc.issuesQACompleted + repo.issuesQACompleted,
     }),
-    { prsOpened: 0, prsMerged: 0, issuesReadyForQA: 0, issuesQACompleted: 0 }
+    { prsOpen: 0, prsMerged: 0, issuesReadyForQA: 0, issuesQACompleted: 0 }
   );
 
   const avgDaysSinceRelease = (() => {
@@ -156,8 +156,8 @@ function SummaryCard({ metrics, isLoading }: { metrics: RepoMetrics[]; isLoading
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <MetricCard
-              title="Total PRs Opened"
-              value={totals.prsOpened}
+              title="Total PRs Open"
+              value={totals.prsOpen}
               icon={GitPullRequest}
               color="text-primary"
             />
