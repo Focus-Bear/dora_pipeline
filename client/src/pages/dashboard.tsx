@@ -28,14 +28,10 @@ export default function Dashboard() {
   const [timeFilter, setTimeFilter] = useState<number | null>(30);
 
   useEffect(() => {
-    try {
-      const doraData = loadDoraData();
-      setData(doraData);
-    } catch (error) {
-      console.error("Error loading DORA data:", error);
-    } finally {
-      setLoading(false);
-    }
+    loadDoraData()
+      .then(doraData => setData(doraData))
+      .catch(error => console.error("Error loading DORA data:", error))
+      .finally(() => setLoading(false));
   }, []);
 
   const filteredData: FilteredData | null = useMemo(() => {

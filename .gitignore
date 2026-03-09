@@ -4,3 +4,14 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Data files — now stored in R2, not committed to git
+dora.json
+dora.sqlite
+repo_summary.csv
+repo_summary_7d.csv
+repo_summary_30d.csv
+
+# Local dev env
+.env.local
+.env*.local

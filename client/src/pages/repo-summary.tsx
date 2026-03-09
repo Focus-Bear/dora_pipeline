@@ -207,8 +207,11 @@ export default function RepoSummary() {
     setError(null);
 
     try {
+      const r2BaseUrl = import.meta.env.VITE_R2_BASE_URL || '';
       const baseUrl = import.meta.env.BASE_URL || '/';
-      const csvFile = `${baseUrl}repo_summary_${days}d.csv`;
+      const csvFile = r2BaseUrl
+        ? `${r2BaseUrl}/repo_summary_${days}d.csv`
+        : `${baseUrl}repo_summary_${days}d.csv`;
       const response = await fetch(csvFile);
       if (!response.ok) {
         throw new Error(`Failed to fetch repo summary data for ${days} days`);
