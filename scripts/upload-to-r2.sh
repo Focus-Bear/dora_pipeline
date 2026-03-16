@@ -53,13 +53,19 @@ upload_file() {
     return 0
   fi
 
-  local cmd="wrangler r2 object put \"${R2_BUCKET_NAME}/${key}\" --file=\"${full_path}\""
+  # Determine content type
+  local content_type_arg=""
+  case "$file" in
+    *.json) content_type_arg="--content-type application/json" ;;
+    *.csv)  content_type_arg="--content-type text/csv" ;;
+  esac
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[DRY RUN] $cmd"
+    echo "[DRY RUN] wrangler r2 object put \"${R2_BUCKET_NAME}/${key}\" --file=\"${full_path}\" ${content_type_arg}"
   else
     echo "⬆️  Uploading ${file} → r2://${R2_BUCKET_NAME}/${key}"
-    eval "$cmd"
+    # shellcheck disable=SC2086
+    wrangler r2 object put "${R2_BUCKET_NAME}/${key}" --file="${full_path}" ${content_type_arg}
     echo "✅ Done: ${key}"
   fi
 }
