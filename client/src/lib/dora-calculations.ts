@@ -1,4 +1,4 @@
-import doraData from "./../../../dora.json";
+const R2_BASE_URL = import.meta.env.VITE_R2_BASE_URL || '';
 
 export interface DoraData {
   fact_deployment: Array<{
@@ -106,8 +106,13 @@ export interface FilteredData {
   issues: DoraData['issues'];
 }
 
-export function loadDoraData(): DoraData {
-  return doraData as DoraData;
+export async function loadDoraData(): Promise<DoraData> {
+  const url = R2_BASE_URL ? `${R2_BASE_URL}/dora.json` : '/dora.json';
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch DORA data: ${response.statusText}`);
+  }
+  return response.json() as Promise<DoraData>;
 }
 
 export function filterDataByDays(data: DoraData, days: number | null): FilteredData {
