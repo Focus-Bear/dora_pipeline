@@ -1,90 +1,83 @@
-name: DORA Metrics with SQLite
+name: DORA Metrics Pipeline
 
 on:
   schedule:
-    - cron: "0 12 * * *"   # daily at 2AM UTC
+    - cron: "0 12 * * *"   # daily at 12:00 UTC
   workflow_dispatch:
 
 jobs:
-  run-script:
+  collect-and-deploy:
     runs-on: ubuntu-latest
     environment:
       name: production
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GH_REPO_TOKEN }}   # needed to push back changes
+        uses: actions/checkout@v4
+        # No token override needed — we are NOT pushing back to the repo
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run DORA script
+      - name: Run DORA pipeline
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_API_READ_TOKEN: ${{ secrets.GITHUB_API_READ_TOKEN }}
           OWNER: ${{ secrets.OWNER }}
           REPO: ${{ secrets.REPO }}
           SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          python dora_pipeline.py   # this generates/updates dora.sqlite
+        run: python dora_pipeline.py
 
       - name: Run Repo Summary script
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_API_READ_TOKEN: ${{ secrets.GITHUB_API_READ_TOKEN }}
+        run: python repo_summary.py
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Upload data files to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
-          python repo_summary.py   # this generates repo_summary.csv
+          for file in dora.json dora.sqlite repo_summary.csv repo_summary_7d.csv repo_summary_30d.csv; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file to R2..."
+              wrangler r2 object put "${R2_BUCKET_NAME}/${file}" --file="$file"
+            else
+              echo "Warning: $file not found, skipping"
+            fi
+          done
 
-      - name: Commit and push updated data files
+      - name: Build Vite project
+        env:
+          VITE_R2_BASE_URL: ${{ secrets.VITE_R2_BASE_URL }}
+          NODE_ENV: production
+        run: npx vite build
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add dora.json
-          git add dora.sqlite
-          git add repo_summary.csv
-          git add repo_summary_7d.csv
-          git add repo_summary_30d.csv
-          git commit -m "Update DORA metrics DB [skip ci]" || echo "No changes to commit"
-          git push
-
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    needs: run-script
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Build project
-      run: npx vite build
-      env:
-        NODE_ENV: production
-
-    - name: Copy data files to dist
-      run: |
-        cp repo_summary.csv dist/public/
-        cp repo_summary_7d.csv dist/public/
-        cp repo_summary_30d.csv dist/public/
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.GH_REPO_TOKEN }}
-        publish_dir: ./dist/public
+          npx wrangler pages deploy dist/public \
+            --project-name=dora-pipeline \
+            --branch=main
