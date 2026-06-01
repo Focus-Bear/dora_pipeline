@@ -27,7 +27,7 @@ jobs:
 
       - name: Run DORA pipeline
         env:
-          GITHUB_API_READ_TOKEN: ${{ secrets.GITHUB_API_READ_TOKEN }}
+          GH_API_READ_TOKEN: ${{ secrets.GH_API_READ_TOKEN }}
           OWNER: ${{ secrets.OWNER }}
           REPO: ${{ secrets.REPO }}
           SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Repo Summary script
         env:
-          GITHUB_API_READ_TOKEN: ${{ secrets.GITHUB_API_READ_TOKEN }}
+          GH_API_READ_TOKEN: ${{ secrets.GH_API_READ_TOKEN }}
         run: python repo_summary.py
 
       - name: Setup Node.js

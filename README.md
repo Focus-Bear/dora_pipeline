@@ -23,7 +23,7 @@ Add these in **Settings → Secrets → Actions**:
 
 | Secret | Description |
 |--------|-------------|
-| `GITHUB_API_READ_TOKEN` | GitHub PAT with `read:org` + `repo` read scopes |
+| `GH_API_READ_TOKEN` | GitHub PAT with `read:org` + `repo` read scopes (secret names can't use the reserved `GITHUB_` prefix) |
 | `CLOUDFLARE_API_TOKEN` | CF API token with Pages + R2 write permissions |
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
 | `R2_BUCKET_NAME` | R2 bucket name, e.g. `dora-pipeline-data` |
@@ -34,7 +34,7 @@ Add these in **Settings → Secrets → Actions**:
 | `SENTRY_ORG` | Sentry org slug |
 | `SENTRY_PROJECT` | Sentry project slug |
 
-> ⚠️ `GH_TOKEN` and `GH_REPO_TOKEN` are no longer used. Replace with `GITHUB_API_READ_TOKEN`.
+> ⚠️ `GH_TOKEN` and `GH_REPO_TOKEN` are no longer used. Replace with `GH_API_READ_TOKEN`.
 
 ## Cloudflare Setup (One-Time)
 

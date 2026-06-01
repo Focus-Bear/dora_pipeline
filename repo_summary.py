@@ -20,8 +20,8 @@ UTC = timezone.utc
 NOW_UTC = datetime.now(UTC)
 
 # GitHub token from environment
-GITHUB_API_READ_TOKEN = os.getenv("GITHUB_API_READ_TOKEN") or ""
-GH_TOKEN = GITHUB_API_READ_TOKEN  # backward compat alias
+GH_API_READ_TOKEN = os.getenv("GH_API_READ_TOKEN") or ""
+GH_TOKEN = GH_API_READ_TOKEN  # backward compat alias
 
 # Repositories to track (with their display names and project board numbers)
 # Each repo has its own project board at https://github.com/orgs/Focus-Bear/projects/{project_number}
@@ -503,7 +503,7 @@ def write_csv(results: List[Dict[str, Any]], output_file: str):
 
 def main():
     if not GH_TOKEN:
-        log.warning("GITHUB_API_READ_TOKEN not set. API rate limits will be very low.")
+        log.warning("GH_API_READ_TOKEN not set. API rate limits will be very low.")
     
     # Fetch issues from all repo-specific project boards
     log.info("Fetching issues from GitHub Project V2 boards...")
