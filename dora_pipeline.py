@@ -17,8 +17,8 @@ UTC = timezone.utc
 NOW_UTC = datetime.now(UTC)
 
 # GitHub
-GITHUB_API_READ_TOKEN = os.getenv("GITHUB_API_READ_TOKEN") or ""
-GH_TOKEN = GITHUB_API_READ_TOKEN  # backward compat alias
+GH_API_READ_TOKEN = os.getenv("GH_API_READ_TOKEN") or ""
+GH_TOKEN = GH_API_READ_TOKEN  # backward compat alias
 OWNER          = os.getenv("OWNER") or ""
 REPO           = os.getenv("REPO") or ""
 ENVIRONMENT    = os.getenv("ENVIRONMENT", "")
@@ -107,7 +107,7 @@ def _request_with_backoff(url: str, headers: Dict[str, str], params: Optional[Di
 
 def gh_get(url: str, params: Optional[Dict[str, Any]] = None) -> Any:
     if not GH_TOKEN:
-        raise RuntimeError("GITHUB_API_READ_TOKEN is required")
+        raise RuntimeError("GH_API_READ_TOKEN is required")
     r = _request_with_backoff(url, HEADERS_GH, params=params)
     return r.json()
 
@@ -906,7 +906,7 @@ def compute_analysis(conn: sqlite3.Connection, etl_run_id: str):
 def main():
     # Basic validation
     missing = []
-    for var in ("GITHUB_API_READ_TOKEN", "OWNER", "REPO"):
+    for var in ("GH_API_READ_TOKEN", "OWNER", "REPO"):
         if not os.getenv(var):
             missing.append(var)
     if missing:
