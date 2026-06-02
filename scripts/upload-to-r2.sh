@@ -61,11 +61,11 @@ upload_file() {
   esac
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[DRY RUN] wrangler r2 object put \"${R2_BUCKET_NAME}/${key}\" --file=\"${full_path}\" ${content_type_arg}"
+    echo "[DRY RUN] wrangler r2 object put \"${R2_BUCKET_NAME}/${key}\" --file=\"${full_path}\" ${content_type_arg} --remote"
   else
     echo "⬆️  Uploading ${file} → r2://${R2_BUCKET_NAME}/${key}"
     # shellcheck disable=SC2086
-    wrangler r2 object put "${R2_BUCKET_NAME}/${key}" --file="${full_path}" ${content_type_arg}
+    wrangler r2 object put "${R2_BUCKET_NAME}/${key}" --file="${full_path}" ${content_type_arg} --remote
     echo "✅ Done: ${key}"
   fi
 }
