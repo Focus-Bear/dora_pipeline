@@ -1,0 +1,10 @@
+name = "dora-pipeline"
+pages_build_output_dir = "dist/public"
+compatibility_date = "2025-05-05"
+
+# Private R2 bucket holding the pipeline's data files (dora.json, repo_summary*.csv).
+# The data is served ONLY through the Access-gated Pages Function at /api/data/*.
+# The bucket's public r2.dev access should be DISABLED — see README.
+[[r2_buckets]]
+binding = "DORA_BUCKET"
+bucket_name = "dora-pipeline-data"
