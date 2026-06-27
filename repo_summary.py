@@ -538,6 +538,19 @@ def main():
     results_30d = generate_report(30, issues_by_repo)
     write_csv(results_30d, "repo_summary.csv")
 
+    # Send the daily (last 24h) summary to Zoho Cliq #scrum, if configured.
+    # Reuses the project board issues already fetched above to avoid extra calls.
+    if os.getenv("CLIQ_WEBHOOK_TOKEN") or os.getenv("CLIQ_WEBHOOK_URL"):
+        try:
+            from cliq_notify import send_daily_update
+
+            log.info("Sending daily update to Zoho Cliq...")
+            send_daily_update(issues_by_repo=issues_by_repo, lookback_days=1)
+        except Exception as e:
+            log.error("Failed to send Cliq daily update: %s", e)
+    else:
+        log.info("CLIQ_WEBHOOK_TOKEN not set; skipping Cliq daily update.")
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,45 @@
+name: TEST - Cliq Daily Update
+
+# Manually post the DORA daily update to Zoho Cliq #scrum without running the
+# full ~45m pipeline. Fetches PRs-merged / issues-QA-closed per repo for the
+# chosen window and posts via the Cliq bot webhook.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Lookback window in days"
+        required: false
+        default: "1"
+      dry_run:
+        description: "Build + log the message without posting"
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  cliq-update:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Post daily update to Cliq
+        env:
+          GH_API_READ_TOKEN: ${{ secrets.GH_API_READ_TOKEN }}
+          CLIQ_WEBHOOK_TOKEN: ${{ secrets.CLIQ_WEBHOOK_TOKEN }}
+        run: |
+          python cliq_notify.py --days "${{ github.event.inputs.days }}" \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}

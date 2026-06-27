@@ -38,6 +38,9 @@ jobs:
       - name: Run Repo Summary script
         env:
           GH_API_READ_TOKEN: ${{ secrets.GH_API_READ_TOKEN }}
+          # Posts the daily (last 24h) PRs-merged / issues-QA-closed summary to
+          # Zoho Cliq #scrum. If the secret is unset, the Cliq post is skipped.
+          CLIQ_WEBHOOK_TOKEN: ${{ secrets.CLIQ_WEBHOOK_TOKEN }}
         run: python repo_summary.py
 
       - name: Setup Node.js
