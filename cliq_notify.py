@@ -21,9 +21,9 @@ Configuration (env vars):
   CLIQ_WEBHOOK_URL     full webhook URL incl. zapikey (overrides the three above)
 
 CLI:
-  python cliq_notify.py                 # fetch real data, build + send
-  python cliq_notify.py --dry-run       # build + print, do not send
-  python cliq_notify.py --days 7        # use a 7-day window instead of 24h
+  python cliq_notify.py                 # fetch real data, build + send (24h + 7d)
+  python cliq_notify.py --dry-run       # build + log, do not send
+  python cliq_notify.py --days 1,7      # explicit windows (comma-separated days)
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ import sys
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
@@ -46,8 +46,11 @@ CLIQ_CHANNEL = os.getenv("CLIQ_CHANNEL", "scrum")
 CLIQ_API_BASE = os.getenv("CLIQ_API_BASE", "https://cliq.zoho.com.au/api/v2")
 CLIQ_WEBHOOK_URL = os.getenv("CLIQ_WEBHOOK_URL") or ""
 
-# Display order / window
-DEFAULT_LOOKBACK_DAYS = int(os.getenv("CLIQ_LOOKBACK_DAYS", "1"))
+# Link to the DORA dashboard, appended to the message footer.
+DORA_DASHBOARD_URL = os.getenv("DORA_DASHBOARD_URL", "https://dora-pipeline.pages.dev")
+
+# Windows (in days) to report, in display order: 24h first, then 7 days.
+DEFAULT_WINDOWS = [1, 7]
 
 log = logging.getLogger("cliq_notify")
 
@@ -64,32 +67,23 @@ def _local_now() -> datetime:
 
 def _window_label(lookback_days: int) -> str:
     if lookback_days == 1:
-        return "last 24h"
-    return f"last {lookback_days} days"
+        return "Last 24h"
+    if lookback_days == 7:
+        return "Last 7 days"
+    return f"Last {lookback_days} days"
 
 
-def build_daily_message(results: List[Dict[str, Any]], lookback_days: int = 1) -> str:
-    """
-    Build the Cliq message text from repo_summary.generate_report() results.
-
-    Each result is a dict with at least:
-      display_name, prs_merged, issues_qa_completed
-    """
-    now = _local_now()
-    date_str = now.strftime("%a, %d %b %Y")
-    window = _window_label(lookback_days)
-
+def _build_section(results: List[Dict[str, Any]], lookback_days: int) -> List[str]:
+    """Build the lines for one window (header with totals + per-repo lines)."""
     total_merged = sum(int(r.get("prs_merged") or 0) for r in results)
     total_qa = sum(int(r.get("issues_qa_completed") or 0) for r in results)
 
     lines: List[str] = []
-    lines.append("🚀 *DORA Daily Update* — " + date_str)
-    lines.append("_" + window.capitalize() + "_")
-    lines.append("")
     lines.append(
-        "*PRs merged:* {}  ·  *Issues QA-closed:* {}".format(total_merged, total_qa)
+        "*{}* — *PRs merged:* {}  ·  *QA-closed:* {}".format(
+            _window_label(lookback_days), total_merged, total_qa
+        )
     )
-    lines.append("")
 
     # Per-repo lines, only repos with activity, busiest first.
     active = [
@@ -103,7 +97,7 @@ def build_daily_message(results: List[Dict[str, Any]], lookback_days: int = 1) -
     )
 
     if not active:
-        lines.append("No PRs merged or issues QA-closed in the " + window + ". 🌙")
+        lines.append("_No PRs merged or issues QA-closed._ 🌙")
     else:
         for r in active:
             name = r.get("display_name") or r.get("repo_name") or "?"
@@ -114,6 +108,27 @@ def build_daily_message(results: List[Dict[str, Any]], lookback_days: int = 1) -
                     name, merged, "" if merged == 1 else "s", qa
                 )
             )
+
+    return lines
+
+
+def build_daily_message(sections: List[Tuple[int, List[Dict[str, Any]]]]) -> str:
+    """
+    Build the Cliq message text from one or more (lookback_days, results) windows,
+    rendered in the order given. Each result dict has at least:
+      display_name, prs_merged, issues_qa_completed
+    """
+    now = _local_now()
+    date_str = now.strftime("%a, %d %b %Y")
+
+    lines: List[str] = ["🚀 *DORA Update* — " + date_str]
+    for lookback_days, results in sections:
+        lines.append("")
+        lines.extend(_build_section(results, lookback_days))
+
+    if DORA_DASHBOARD_URL:
+        lines.append("")
+        lines.append("📊 [DORA dashboard](" + DORA_DASHBOARD_URL + ")")
 
     return "\n".join(lines)
 
@@ -157,24 +172,36 @@ def post_to_cliq(text: str, channel: Optional[str] = None) -> bool:
 
 def send_daily_update(
     issues_by_repo: Optional[Dict[str, List[Dict[str, Any]]]] = None,
-    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+    windows: Optional[List[int]] = None,
+    precomputed: Optional[Dict[int, List[Dict[str, Any]]]] = None,
     dry_run: bool = False,
 ) -> Optional[str]:
     """
-    Build and send the daily Cliq update.
+    Build and send the daily Cliq update for one or more windows (in days).
 
     If issues_by_repo is None, fetches it via repo_summary (needs GH_API_READ_TOKEN).
     Otherwise reuses the already-fetched project board issues to avoid extra calls.
+    `precomputed` maps a window (days) to an already-generated report so callers
+    (e.g. repo_summary.main) can avoid recomputing windows they already built.
     Returns the message text (also useful for dry runs), or None if nothing was built.
     """
     # Lazy import to avoid a hard import cycle with repo_summary.
     from repo_summary import fetch_all_project_issues, generate_report
 
+    windows = windows or DEFAULT_WINDOWS
+    precomputed = dict(precomputed or {})
+
     if issues_by_repo is None:
         issues_by_repo = fetch_all_project_issues()
 
-    results = generate_report(lookback_days, issues_by_repo)
-    message = build_daily_message(results, lookback_days)
+    sections: List[Tuple[int, List[Dict[str, Any]]]] = []
+    for days in windows:
+        results = precomputed.get(days)
+        if results is None:
+            results = generate_report(days, issues_by_repo)
+        sections.append((days, results))
+
+    message = build_daily_message(sections)
 
     if dry_run:
         log.info("[dry-run] Cliq message:\n%s", message)
@@ -192,15 +219,16 @@ def main():
 
     args = sys.argv[1:]
     dry_run = "--dry-run" in args
-    lookback_days = DEFAULT_LOOKBACK_DAYS
+    windows = DEFAULT_WINDOWS
     if "--days" in args:
         try:
-            lookback_days = int(args[args.index("--days") + 1])
+            raw = args[args.index("--days") + 1]
+            windows = [int(d) for d in raw.split(",") if d.strip()]
         except (ValueError, IndexError):
-            log.error("--days requires an integer argument")
+            log.error("--days requires day counts, e.g. --days 1,7")
             sys.exit(2)
 
-    send_daily_update(lookback_days=lookback_days, dry_run=dry_run)
+    send_daily_update(windows=windows, dry_run=dry_run)
 
 
 if __name__ == "__main__":

@@ -510,10 +510,12 @@ def main():
     issues_by_repo = fetch_all_project_issues()
     
     # Generate reports for each time period
+    reports: Dict[int, List[Dict[str, Any]]] = {}
     for days in TIME_PERIODS:
         log.info("Generating report for last %d days...", days)
         results = generate_report(days, issues_by_repo)
-        
+        reports[days] = results
+
         # Write to CSV
         output_file = f"repo_summary_{days}d.csv"
         write_csv(results, output_file)
@@ -538,14 +540,19 @@ def main():
     results_30d = generate_report(30, issues_by_repo)
     write_csv(results_30d, "repo_summary.csv")
 
-    # Send the daily (last 24h) summary to Zoho Cliq #scrum, if configured.
-    # Reuses the project board issues already fetched above to avoid extra calls.
+    # Send the daily summary (last 24h + last 7 days) to Zoho Cliq #scrum, if
+    # configured. Reuses the project board issues and the 7-day report already
+    # computed above so only the 1-day window is generated fresh.
     if os.getenv("CLIQ_WEBHOOK_TOKEN") or os.getenv("CLIQ_WEBHOOK_URL"):
         try:
             from cliq_notify import send_daily_update
 
             log.info("Sending daily update to Zoho Cliq...")
-            send_daily_update(issues_by_repo=issues_by_repo, lookback_days=1)
+            send_daily_update(
+                issues_by_repo=issues_by_repo,
+                windows=[1, 7],
+                precomputed={7: reports.get(7)} if reports.get(7) else None,
+            )
         except Exception as e:
             log.error("Failed to send Cliq daily update: %s", e)
     else:
