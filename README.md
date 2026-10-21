@@ -36,7 +36,7 @@ Add these in **Settings → Secrets → Actions**:
 
 | Secret | Description |
 |--------|-------------|
-| `GH_API_READ_TOKEN` | GitHub PAT with `read:org` + `repo` read scopes (secret names can't use the reserved `GITHUB_` prefix) |
+| `GH_API_READ_TOKEN` | GitHub PAT with `read:org` + `repo` + `read:project` (fine-grained: Contents, Issues, Pull requests, Actions read + org Projects read). Secret names can't use the reserved `GITHUB_` prefix |
 | `CLOUDFLARE_API_TOKEN` | CF API token with Pages + R2 write permissions |
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
 | `R2_BUCKET_NAME` | R2 bucket name, e.g. `dora-pipeline-data` |
@@ -132,6 +132,44 @@ bash scripts/upload-to-r2.sh --dry-run
 
 # Then upload
 bash scripts/upload-to-r2.sh
+```
+
+## Repo summary metrics (`repo_summary.py`)
+
+Written to `repo_summary_7d.csv` / `repo_summary_30d.csv` (dashboard "Overall
+Velocity Report" page) and posted daily to Zoho Cliq #scrum (`cliq_notify.py`,
+last 24 h + last 7 days). Per repo, plus totals:
+
+| Metric | Source |
+|--------|--------|
+| PRs open (draft / approved split), PRs merged | GitHub search counts, one batched GraphQL query per repo |
+| QA passed / QA failed | Issues whose board Status moved into the repo's passed / failed column in the window (`ProjectV2ItemStatusChangedEvent` timeline events) |
+| Ready for QA now, 24 h ago, 7 d ago | Current board Status; past counts are reconstructed from the same status-change history, so the trend needs no stored snapshots |
+| Roadmap progress | Issues moved into Ready for QA vs new issues (and new `bug`-labelled issues) filed in the window; ✅ when the ratio is ≥ 1 |
+| Days since last release | Per platform, see below |
+
+Each repo's board columns are configured in `REPOS` (`qa.ready` / `qa.passed` /
+`qa.failed`). Backend has no QA-failed column; the browser extension board has
+no QA columns at all, so those figures show as `–`.
+
+Release signal per repo (`release_velocity.py`; falls back to GitHub Releases, then tags):
+
+| Repo | Signal |
+|------|--------|
+| Mac | Newest item in the Sparkle appcast (`downloads.focusbear.io/update/mac/new/latest-version.xml`). GitHub Releases there are per-build QA builds, not user releases |
+| Windows | `Last-Modified` of `downloads.focusbear.io/update/windows/update.ini`, the file the app polls |
+| Mobile | App Store lookup API `currentVersionReleaseDate` (iOS; Google Play has no public API) |
+| Web Dashboard | Last successful `s3-deployment-prod.yaml` run on `main` |
+| Backend | Last successful `github-aws-prod-deployment.yaml` / `github-aws-hotfix-deploy.yaml` run |
+| Linux | Last successful `build-deb.yml` run on `main` |
+
+Run locally without posting to Cliq (leave `CLIQ_WEBHOOK_TOKEN` unset; CSVs are
+written to the current directory):
+
+```bash
+GH_API_READ_TOKEN=$(gh auth token) python cliq_notify.py --dry-run
+GH_API_READ_TOKEN=$(gh auth token) python repo_summary.py
+python -m unittest discover -s tests -t .
 ```
 
 ## Triggering Manually
