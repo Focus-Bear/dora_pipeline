@@ -15,3 +15,6 @@ repo_summary_30d.csv
 # Local dev env
 .env.local
 .env*.local
+# Python bytecode
+__pycache__/
+*.pyc
