@@ -1,54 +1,209 @@
 #!/usr/bin/env python3
 """
-Fetch repository summary metrics (PRs opened, PRs merged, issues ready for QA, issues QA completed)
-for multiple Focus Bear repositories and export to CSV.
+Fetch repository summary metrics for the Focus Bear repositories and export
+them to CSV (one file per time window) for the dashboard and the Cliq update.
 
-QA stats are fetched from GitHub Project V2 board using GraphQL API.
-Generates separate CSV files for different time periods (7 days and 30 days).
+Per repo:
+  - Open PRs (split into draft / approved) and PRs merged in the window
+  - QA progress from the repo's GitHub Projects v2 board: issues moved to QA
+    passed / QA failed in the window, issues currently in Ready for QA, and
+    the Ready for QA count 24 h and 7 days ago (for the trend)
+  - Roadmap progress: issues moved into Ready for QA vs new issues (and new
+    bug-labelled issues) filed in the window
+  - Release velocity: days since the last release (see release_velocity.py)
+
+Status history comes from the issues' ProjectV2ItemStatusChangedEvent timeline
+events, so past Ready for QA counts are reconstructed rather than snapshotted.
 """
 
-import os
+from __future__ import annotations
+
 import csv
-import math
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+import os
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Sequence
 
-import requests
+import github_api
+import qa_metrics
+from qa_metrics import UTC, StatusChange, parse_iso
+from release_velocity import (
+    SOURCE_APP_STORE,
+    SOURCE_SPARKLE,
+    SOURCE_UPDATE_INI,
+    SOURCE_WORKFLOW,
+    Release,
+    fetch_last_release,
+)
 
-UTC = timezone.utc
 NOW_UTC = datetime.now(UTC)
 
-# GitHub token from environment
-GH_API_READ_TOKEN = os.getenv("GH_API_READ_TOKEN") or ""
+GH_API_READ_TOKEN = github_api.GH_API_READ_TOKEN
 GH_TOKEN = GH_API_READ_TOKEN  # backward compat alias
 
-# Repositories to track (with their display names and project board numbers)
-# Each repo has its own project board at https://github.com/orgs/Focus-Bear/projects/{project_number}
-REPOS = [
-    {"name": "Focus-Bear/web_dashboard", "display_name": "Web Dashboard", "short_name": "web_dashboard", "project_number": 6},
-    {"name": "Focus-Bear/backend", "display_name": "Backend", "short_name": "backend", "project_number": 4},
-    {"name": "Focus-Bear/mobile-app", "display_name": "Mobile", "short_name": "mobile-app", "project_number": 3},
-    {"name": "Focus-Bear/Mac-App", "display_name": "Mac", "short_name": "Mac-App", "project_number": 1},
-    {"name": "Focus-Bear/windows-app-v2", "display_name": "Windows", "short_name": "windows-app-v2", "project_number": 5},
+GH_ORG = "Focus-Bear"
+STATUS_FIELD_NAME = "Status"
+BUG_LABEL = "bug"
+
+# Status option names on each board. Boards name their columns differently, so
+# each repo lists its own. `passed_from` restricts a "passed" move to moves out
+# of those statuses, for boards whose passed column is a generic Done column.
+STANDARD_QA = {
+    "ready": ["Ready for QA"],
+    "passed": ["QA Passed/Done"],
+    "failed": ["QA Failed"],
+}
+
+# Repositories to track. Each has its own board at
+# https://github.com/orgs/Focus-Bear/projects/{project_number}.
+# `qa` is None for boards with no QA columns. `release` picks the signal that
+# best means "users got a new version" (see release_velocity.py).
+REPOS: List[Dict[str, Any]] = [
+    {
+        "name": "Focus-Bear/web_dashboard",
+        "display_name": "Web Dashboard",
+        "short_name": "web_dashboard",
+        "project_number": 6,
+        "qa": {**STANDARD_QA, "ready": ["Ready for QA", "Ready for QA high priority"]},
+        "release": {"kind": SOURCE_WORKFLOW, "workflows": ["s3-deployment-prod.yaml"], "branch": "main", "label": "prod deploy"},
+    },
+    {
+        "name": "Focus-Bear/backend",
+        "display_name": "Backend",
+        "short_name": "backend",
+        "project_number": 4,
+        "qa": {"ready": ["Deployed awaiting QA"], "passed": ["QA'd"], "failed": []},
+        "release": {
+            "kind": SOURCE_WORKFLOW,
+            "workflows": ["github-aws-prod-deployment.yaml", "github-aws-hotfix-deploy.yaml"],
+            "label": "prod deploy",
+        },
+    },
+    {
+        "name": "Focus-Bear/mobile-app",
+        "display_name": "Mobile",
+        "short_name": "mobile-app",
+        "project_number": 3,
+        "qa": STANDARD_QA,
+        "release": {"kind": SOURCE_APP_STORE, "app_id": "1673296334"},
+    },
+    {
+        "name": "Focus-Bear/Mac-App",
+        "display_name": "Mac",
+        "short_name": "Mac-App",
+        "project_number": 1,
+        "qa": STANDARD_QA,
+        "release": {"kind": SOURCE_SPARKLE, "url": "https://downloads.focusbear.io/update/mac/new/latest-version.xml"},
+    },
+    {
+        "name": "Focus-Bear/windows-app-v2",
+        "display_name": "Windows",
+        "short_name": "windows-app-v2",
+        "project_number": 5,
+        "qa": STANDARD_QA,
+        "release": {"kind": SOURCE_UPDATE_INI, "url": "https://downloads.focusbear.io/update/windows/update.ini"},
+    },
+    {
+        "name": "Focus-Bear/Linux-App",
+        "display_name": "Linux",
+        "short_name": "Linux-App",
+        "project_number": 45,
+        "qa": {"ready": ["Ready for QA"], "passed": ["Done/Closed"], "failed": [], "passed_from": ["Ready for QA", "QA"]},
+        "release": {"kind": SOURCE_WORKFLOW, "workflows": ["build-deb.yml"], "branch": "main", "label": ".deb build"},
+    },
+    {
+        "name": "Focus-Bear/chrome_extension",
+        "display_name": "Browser Extension",
+        "short_name": "chrome_extension",
+        "project_number": 43,
+        "qa": None,
+        "release": None,
+    },
 ]
 
-# GitHub organization
-GH_ORG = "Focus-Bear"
-
-# QA status field values in the project board
-# "Ready for QA" shows total count of issues in these statuses (no time filtering)
-QA_READY_STATUSES = ["Ready for QA", "Deployed awaiting QA", "In Review"]
-# "QA Completed" shows issues moved to these statuses within the time period
-QA_COMPLETED_STATUSES = ["QA'd", "QA Passed", "Done", "QA Passed/Done"]
-
-# Time periods to generate reports for
+# Time periods (days) to generate dashboard CSVs for.
 TIME_PERIODS = [7, 30]
+# Windows reported in the Cliq update.
+CLIQ_WINDOWS = [1, 7]
+# How far back the Ready for QA count is compared, in days.
+TREND_LOOKBACK_DAYS = [1, 7]
+DEFAULT_REPORT_DAYS = 30
 
-BASE_GH = "https://api.github.com"
-BASE_GH_GRAPHQL = "https://api.github.com/graphql"
+PROJECT_ITEMS_PAGE_SIZE = 100
+TIMELINE_BATCH_SIZE = 50
+TIMELINE_PAGE_SIZE = 100
+GITHUB_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
-# Logging
+CSV_FIELDNAMES = [
+    "repo_name",
+    "display_name",
+    "prs_open",
+    "prs_merged",
+    "issues_ready_for_qa",
+    "issues_qa_completed",
+    "days_since_last_release",
+    "fetched_at",
+    # Added with the QA / roadmap / release metrics; appended so older readers
+    # of the first eight columns keep working.
+    "window_days",
+    "prs_draft",
+    "prs_approved",
+    "issues_qa_failed",
+    "issues_moved_to_ready_for_qa",
+    "issues_created",
+    "bugs_created",
+    "ready_for_qa_1d_ago",
+    "ready_for_qa_7d_ago",
+    "last_release_at",
+    "release_version",
+    "release_source",
+]
+
+PROJECT_ITEMS_QUERY = """
+query($org: String!, $project: Int!, $first: Int!, $after: String, $statusField: String!) {
+  organization(login: $org) {
+    projectV2(number: $project) {
+      items(first: $first, after: $after) {
+        nodes {
+          createdAt
+          updatedAt
+          content {
+            __typename
+            ... on Issue { id number updatedAt }
+          }
+          fieldValueByName(name: $statusField) {
+            ... on ProjectV2ItemFieldSingleSelectValue { name updatedAt }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}
+"""
+
+STATUS_EVENTS_QUERY = """
+query($ids: [ID!]!, $since: DateTime!, $first: Int!) {
+  nodes(ids: $ids) {
+    ... on Issue {
+      id
+      timelineItems(first: $first, since: $since, itemTypes: [PROJECT_V2_ITEM_STATUS_CHANGED_EVENT]) {
+        pageInfo { hasNextPage }
+        nodes {
+          ... on ProjectV2ItemStatusChangedEvent {
+            createdAt
+            previousStatus
+            status
+            project { number }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -56,507 +211,290 @@ logging.basicConfig(
 log = logging.getLogger("repo_summary")
 
 
-def get_headers() -> Dict[str, str]:
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
+@dataclass
+class SummaryInputs:
+    """Everything fetched from GitHub and the release feeds for one run."""
+
+    fetched_at: datetime
+    items_by_repo: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+    counts_by_repo: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    releases_by_repo: Dict[str, Optional[Release]] = field(default_factory=dict)
+    errors_by_repo: Dict[str, str] = field(default_factory=dict)
+
+
+# ---------- Project boards ----------
+
+def fetch_project_issues_for_repo(project_number: int) -> List[Dict[str, Any]]:
+    """Every issue on a Projects v2 board with its current Status (see qa_metrics for the item shape)."""
+    variables: Dict[str, Any] = {
+        "org": GH_ORG,
+        "project": project_number,
+        "first": PROJECT_ITEMS_PAGE_SIZE,
+        "after": None,
+        "statusField": STATUS_FIELD_NAME,
     }
-    if GH_TOKEN:
-        headers["Authorization"] = f"token {GH_TOKEN}"
-    return headers
-
-
-def get_graphql_headers() -> Dict[str, str]:
-    return {
-        "Authorization": f"Bearer {GH_TOKEN}",
-        "Accept": "application/vnd.github+json",
-    }
-
-
-def gh_get_paged(url: str, params: Optional[Dict[str, Any]] = None, cap_pages: int = 10) -> List[Any]:
-    """Fetch paginated GitHub API results."""
-    out: List[Any] = []
-    page = 1
-    params = dict(params or {})
-    headers = get_headers()
-    
-    while page <= cap_pages:
-        params.update({"per_page": 100, "page": page})
-        r = requests.get(url, headers=headers, params=params)
-        if r.status_code == 403:
-            log.warning("Rate limited or access denied for %s", url)
-            break
-        r.raise_for_status()
-        batch = r.json()
-        if not isinstance(batch, list) or not batch:
-            break
-        out.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
-    return out
-
-
-def fetch_project_issues_for_repo(project_number: int, repo_short_name: str) -> List[Dict[str, Any]]:
-    """
-    Fetch all issues from a specific GitHub Project V2 board using GraphQL API.
-    Returns a list of issues with their statuses and updated_at.
-    """
-    if not GH_TOKEN:
-        log.warning("GH_TOKEN not set, cannot fetch project issues")
-        return []
-
-    query = """
-    query($org: String!, $project: Int!, $first: Int!, $after: String) {
-      organization(login: $org) {
-        projectV2(number: $project) {
-          title
-          items(first: $first, after: $after) {
-            nodes {
-              content {
-                __typename
-                ... on Issue {
-                  number
-                  title
-                  updatedAt
-                  repository {
-                    name
-                    nameWithOwner
-                  }
-                }
-              }
-              fieldValues(first: 20) {
-                nodes {
-                  ... on ProjectV2ItemFieldSingleSelectValue {
-                    name
-                    updatedAt
-                    field {
-                      ... on ProjectV2SingleSelectField {
-                        name
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-          }
-        }
-      }
-    }
-    """
-
-    headers = get_graphql_headers()
-    variables = {"org": GH_ORG, "project": project_number, "first": 100, "after": None}
-    
-    issues: List[Dict[str, Any]] = []
-    
+    items: List[Dict[str, Any]] = []
     while True:
-        r = requests.post(BASE_GH_GRAPHQL, headers=headers, json={"query": query, "variables": variables})
-        if r.status_code != 200:
-            log.error("GraphQL request failed for project %d: %s - %s", project_number, r.status_code, r.text)
-            break
-        
-        data = r.json()
-        if "errors" in data:
-            log.error("GraphQL errors for project %d: %s", project_number, data["errors"])
-            break
-            
-        project = data.get("data", {}).get("organization", {}).get("projectV2")
+        project = (github_api.graphql(PROJECT_ITEMS_QUERY, variables).get("organization") or {}).get("projectV2")
         if not project:
-            log.warning("No project found for org=%s, project=%d", GH_ORG, project_number)
-            break
-
-        for item in project["items"]["nodes"]:
-            content = item.get("content")
-            if not content or content.get("__typename") != "Issue":
-                continue
-                
-            issue_number = content.get("number")
-            issue_updated_at = content.get("updatedAt")
-            
-            status = None
-            status_updated_at = None
-            for fv in item.get("fieldValues", {}).get("nodes", []):
-                if not fv or not fv.get("name"):
-                    continue
-                field_name = (fv.get("field") or {}).get("name", "")
-                if field_name == "Status":
-                    status = fv.get("name")
-                    status_updated_at = fv.get("updatedAt")
-            
-            if issue_number:
-                issues.append({
-                    "number": issue_number,
-                    "status": status,
-                    "updated_at": issue_updated_at,
-                    "status_updated_at": status_updated_at,
-                })
-
+            raise github_api.GitHubError(
+                f"Project {project_number} not visible — the token needs read:project (Projects: read)"
+            )
+        for node in project["items"]["nodes"]:
+            item = _board_item(node)
+            if item:
+                items.append(item)
         page_info = project["items"]["pageInfo"]
-        if page_info["hasNextPage"]:
-            variables["after"] = page_info["endCursor"]
-        else:
-            break
-    
-    return issues
+        if not page_info["hasNextPage"]:
+            return items
+        variables["after"] = page_info["endCursor"]
 
 
-def fetch_all_project_issues() -> Dict[str, List[Dict[str, Any]]]:
+def _board_item(node: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    content = node.get("content") or {}
+    if content.get("__typename") != "Issue":
+        return None
+    status_value = node.get("fieldValueByName") or {}
+    return {
+        "id": content.get("id"),
+        "number": content.get("number"),
+        "updated_at": content.get("updatedAt"),
+        "status": status_value.get("name"),
+        "status_updated_at": parse_iso(status_value.get("updatedAt")),
+        "item_created_at": parse_iso(node.get("createdAt")),
+        "item_updated_at": parse_iso(node.get("updatedAt")),
+        "events": None,
+    }
+
+
+def attach_status_events(items: List[Dict[str, Any]], project_number: int, since: datetime) -> None:
     """
-    Fetch issues from all repo-specific GitHub Project V2 boards.
-    Returns a dict mapping repo short name to list of issues with their statuses and updated_at.
+    Fill in `events` for the items whose board entry changed after `since`,
+    batching the timeline lookups. Items untouched since then keep events=None.
     """
-    issues_by_repo: Dict[str, List[Dict[str, Any]]] = {}
-    
-    for repo in REPOS:
-        short_name = repo["short_name"]
-        project_number = repo["project_number"]
-        
-        log.info("Fetching issues from project #%d for %s...", project_number, short_name)
-        issues = fetch_project_issues_for_repo(project_number, short_name)
-        issues_by_repo[short_name] = issues
-        log.info("  Found %d issues for %s", len(issues), short_name)
-    
-    return issues_by_repo
+    by_id = {
+        item["id"]: item
+        for item in items
+        if item["id"] and item["item_updated_at"] and item["item_updated_at"] > since
+    }
+    ids = list(by_id)
+    for start in range(0, len(ids), TIMELINE_BATCH_SIZE):
+        data = github_api.graphql(
+            STATUS_EVENTS_QUERY,
+            {
+                "ids": ids[start:start + TIMELINE_BATCH_SIZE],
+                "since": since.strftime(GITHUB_DATETIME_FORMAT),
+                "first": TIMELINE_PAGE_SIZE,
+            },
+        )
+        for node in data.get("nodes") or []:
+            if node and node.get("id") in by_id:
+                by_id[node["id"]]["events"] = _status_changes(node, project_number)
 
 
-def fetch_repo_pr_metrics(repo_name: str, lookback_days: int) -> Dict[str, int]:
-    """Fetch PR metrics for a single repository within the lookback period."""
-    cutoff_date = NOW_UTC - timedelta(days=lookback_days)
+def _status_changes(issue_node: Dict[str, Any], project_number: int) -> List[StatusChange]:
+    timeline = issue_node.get("timelineItems") or {}
+    if (timeline.get("pageInfo") or {}).get("hasNextPage"):
+        log.warning("Issue %s has more than %d status changes in the window; later ones ignored",
+                    issue_node.get("id"), TIMELINE_PAGE_SIZE)
+    changes: List[StatusChange] = []
+    for event in timeline.get("nodes") or []:
+        at = parse_iso((event or {}).get("createdAt"))
+        # An issue can sit on several boards; only this board's changes count.
+        if at is None or (event.get("project") or {}).get("number") != project_number:
+            continue
+        changes.append(StatusChange(at, event.get("previousStatus") or None, event.get("status") or None))
+    changes.sort(key=lambda change: change.at)
+    return changes
 
-    prs_open = len(gh_get_paged(
-        f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "open"}
-    ))
 
-    closed_prs = gh_get_paged(
-        f"{BASE_GH}/repos/{repo_name}/pulls", params={"state": "closed"}
+def fetch_board(repo: Dict[str, Any], history_since: datetime) -> List[Dict[str, Any]]:
+    items = fetch_project_issues_for_repo(repo["project_number"])
+    if repo.get("qa"):
+        attach_status_events(items, repo["project_number"], history_since)
+    return items
+
+
+# ---------- PR / issue counts (GitHub search, batched per repo) ----------
+
+def count_queries(repo_name: str, windows: Sequence[int], now: datetime) -> Dict[str, str]:
+    """GitHub search queries keyed by the count they produce."""
+    repo = f"repo:{repo_name}"
+    queries = {
+        "prs_open": f"{repo} is:pr is:open",
+        "prs_draft": f"{repo} is:pr is:open draft:true",
+        "prs_approved": f"{repo} is:pr is:open review:approved",
+    }
+    for days in windows:
+        since = (now - timedelta(days=days)).strftime(GITHUB_DATETIME_FORMAT)
+        queries[f"prs_merged_{days}d"] = f"{repo} is:pr is:merged merged:>={since}"
+        queries[f"issues_created_{days}d"] = f"{repo} is:issue created:>={since}"
+        queries[f"bugs_created_{days}d"] = f"{repo} is:issue label:{BUG_LABEL} created:>={since}"
+    return queries
+
+
+def fetch_counts(repo_name: str, windows: Sequence[int], now: datetime) -> Dict[str, int]:
+    """All of a repo's search counts in one GraphQL request."""
+    queries = count_queries(repo_name, windows, now)
+    aliases = {key: f"q{index}" for index, key in enumerate(queries)}
+    declarations = ", ".join(f"${alias}: String!" for alias in aliases.values())
+    selections = "\n".join(
+        f"{alias}: search(type: ISSUE, query: ${alias}, first: 0) {{ issueCount }}" for alias in aliases.values()
     )
-    prs_merged = len([
-        pr for pr in closed_prs
-        if pr.get("merged_at") and datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00")) >= cutoff_date
-    ])
-
-    return {
-        "prs_open": prs_open,
-        "prs_merged": prs_merged,
-    }
+    data = github_api.graphql(
+        f"query({declarations}) {{\n{selections}\n}}",
+        {alias: queries[key] for key, alias in aliases.items()},
+    )
+    return {key: int((data.get(alias) or {}).get("issueCount") or 0) for key, alias in aliases.items()}
 
 
-def fetch_days_since_last_release(repo_name: str) -> Optional[int]:
-    """Fetch the latest GitHub release and return the number of days since it was published."""
-    headers = get_headers()
-    url = f"{BASE_GH}/repos/{repo_name}/releases/latest"
-    try:
-        r = requests.get(url, headers=headers)
-        if r.status_code == 404:
-            log.info("No releases found for %s, trying tags...", repo_name)
-            return _days_since_last_tag(repo_name)
-        if r.status_code != 200:
-            log.warning("Failed to fetch latest release for %s: %s", repo_name, r.status_code)
-            return None
-        data = r.json()
-        published_at = data.get("published_at") or data.get("created_at")
-        if not published_at:
-            return None
-        release_dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
-        delta = NOW_UTC - release_dt
-        return max(0, math.floor(delta.total_seconds() / 86400))
-    except Exception as e:
-        log.warning("Error fetching release for %s: %s", repo_name, e)
-        return None
+# ---------- Collection ----------
 
-
-def _days_since_last_tag(repo_name: str) -> Optional[int]:
-    """Fallback: use the latest tag's commit date if no GitHub releases exist."""
-    headers = get_headers()
-    url = f"{BASE_GH}/repos/{repo_name}/tags"
-    try:
-        r = requests.get(url, headers=headers, params={"per_page": 1})
-        if r.status_code != 200:
-            return None
-        tags = r.json()
-        if not tags:
-            return None
-        commit_url = (tags[0].get("commit") or {}).get("url")
-        if not commit_url:
-            return None
-        cr = requests.get(commit_url, headers=headers)
-        if cr.status_code != 200:
-            return None
-        commit_data = cr.json()
-        date_str = (commit_data.get("commit") or {}).get("committer", {}).get("date")
-        if not date_str:
-            return None
-        tag_dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        delta = NOW_UTC - tag_dt
-        return max(0, math.floor(delta.total_seconds() / 86400))
-    except Exception as e:
-        log.warning("Error fetching tags for %s: %s", repo_name, e)
-        return None
-
-
-def fetch_issue_timeline(repo_name: str, issue_number: int) -> List[Dict[str, Any]]:
-    """Fetch timeline events for a single issue via REST API."""
-    headers = get_headers()
-    headers["Accept"] = "application/vnd.github+json"
-    url = f"{BASE_GH}/repos/{repo_name}/issues/{issue_number}/timeline"
-    events: List[Dict[str, Any]] = []
-    page = 1
-    while page <= 5:
-        r = requests.get(url, headers=headers, params={"per_page": 100, "page": page})
-        if r.status_code != 200:
-            log.debug("Timeline fetch failed for %s#%d: %s", repo_name, issue_number, r.status_code)
-            break
-        batch = r.json()
-        if not isinstance(batch, list) or not batch:
-            break
-        events.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
-    return events
-
-
-def detect_qa_completed_from_timeline(
-    repo_name: str,
-    issue_numbers: List[int],
-    lookback_days: int,
-    already_counted: set,
-) -> int:
-    """
-    Detect QA completion transitions by inspecting issue timeline events.
-    Catches issues that were moved to a QA completed column on the project board,
-    even if they have since been moved to another status.
-    """
-    cutoff_date = NOW_UTC - timedelta(days=lookback_days)
-    qa_completed_via_timeline = 0
-
-    for issue_number in issue_numbers:
-        if issue_number in already_counted:
-            continue
-        try:
-            events = fetch_issue_timeline(repo_name, issue_number)
-            for event in events:
-                event_type = event.get("event", "")
-                if event_type == "moved_columns_in_project":
-                    column_name = (event.get("project_card") or {}).get("column_name", "")
-                    if column_name in QA_COMPLETED_STATUSES:
-                        created_at_str = event.get("created_at", "")
-                        if created_at_str:
-                            event_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                            if event_time >= cutoff_date:
-                                qa_completed_via_timeline += 1
-                                break
-        except Exception as e:
-            log.debug("Timeline check failed for %s#%d: %s", repo_name, issue_number, e)
-
-    return qa_completed_via_timeline
-
-
-def count_qa_issues(
-    issues: List[Dict[str, Any]],
-    lookback_days: int,
-    repo_name: Optional[str] = None,
-) -> Dict[str, int]:
-    """
-    Count issues by QA status.
-
-    - Ready for QA: Total count of issues currently in QA_READY_STATUSES (no time filtering)
-    - QA Completed: Issues that transitioned to QA_COMPLETED_STATUSES within the lookback period.
-      Detected via:
-        1. Current status field value and its updatedAt timestamp (from project board GraphQL)
-        2. Issue timeline events showing project board column movements (REST API fallback
-           for issues that were moved to QA completed then moved elsewhere)
-    """
-    cutoff_date = NOW_UTC - timedelta(days=lookback_days)
-
-    issues_ready_for_qa = 0
-    issues_qa_completed = 0
-    qa_counted_numbers: set = set()
-
-    for issue in issues:
-        status = issue.get("status")
-        if not status:
-            continue
-
-        if status in QA_READY_STATUSES:
-            issues_ready_for_qa += 1
-
-        elif status in QA_COMPLETED_STATUSES:
-            updated_str = issue.get("status_updated_at") or issue.get("updated_at")
-            if updated_str:
-                try:
-                    updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
-                    if updated_at >= cutoff_date:
-                        issues_qa_completed += 1
-                        qa_counted_numbers.add(issue.get("number"))
-                except (ValueError, TypeError):
-                    pass
-
-    if repo_name:
-        recently_updated = [
-            issue["number"]
-            for issue in issues
-            if issue.get("number") and issue.get("updated_at")
-            and _is_within_cutoff(issue["updated_at"], cutoff_date)
-        ]
-        if recently_updated:
-            timeline_count = detect_qa_completed_from_timeline(
-                repo_name, recently_updated, lookback_days, qa_counted_numbers,
-            )
-            issues_qa_completed += timeline_count
-
-    return {
-        "issues_ready_for_qa": issues_ready_for_qa,
-        "issues_qa_completed": issues_qa_completed,
-    }
-
-
-def _is_within_cutoff(date_str: str, cutoff_date: datetime) -> bool:
-    try:
-        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        return dt >= cutoff_date
-    except (ValueError, TypeError):
-        return False
-
-
-def generate_report(lookback_days: int, issues_by_repo: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    """Generate a report for a specific lookback period."""
-    results = []
-    
+def collect_inputs(windows: Sequence[int], now: datetime = NOW_UTC) -> SummaryInputs:
+    """Fetch boards, counts and releases for every repo once; every report is built from this."""
+    history_since = now - timedelta(days=max(list(windows) + TREND_LOOKBACK_DAYS))
+    inputs = SummaryInputs(fetched_at=now)
     for repo in REPOS:
-        repo_name = repo["name"]
-        display_name = repo["display_name"]
         short_name = repo["short_name"]
-        
-        log.info("Fetching metrics for %s (last %d days)...", repo_name, lookback_days)
-        
+        log.info("Fetching %s (board #%d)...", repo["name"], repo["project_number"])
         try:
-            # Fetch PR metrics
-            pr_metrics = fetch_repo_pr_metrics(repo_name, lookback_days)
-            
-            # Count QA issues from project board data
-            repo_issues = issues_by_repo.get(short_name, [])
-            qa_metrics = count_qa_issues(repo_issues, lookback_days, repo_name=repo_name)
-
-            days_since_release = fetch_days_since_last_release(repo_name)
-            
-            results.append({
-                "repo_name": repo_name,
-                "display_name": display_name,
-                "prs_open": pr_metrics["prs_open"],
-                "prs_merged": pr_metrics["prs_merged"],
-                "issues_ready_for_qa": qa_metrics["issues_ready_for_qa"],
-                "issues_qa_completed": qa_metrics["issues_qa_completed"],
-                "days_since_last_release": days_since_release if days_since_release is not None else "",
-                "fetched_at": NOW_UTC.isoformat(),
-            })
-            log.info(
-                "  %s: PRs open=%d, merged=%d, ready for QA=%d, QA completed=%d, days since release=%s",
-                display_name,
-                pr_metrics["prs_open"],
-                pr_metrics["prs_merged"],
-                qa_metrics["issues_ready_for_qa"],
-                qa_metrics["issues_qa_completed"],
-                days_since_release if days_since_release is not None else "N/A",
-            )
-        except Exception as e:
-            log.error("Failed to fetch metrics for %s: %s", repo_name, e)
-            results.append({
-                "repo_name": repo_name,
-                "display_name": display_name,
-                "prs_open": 0,
-                "prs_merged": 0,
-                "issues_ready_for_qa": 0,
-                "issues_qa_completed": 0,
-                "days_since_last_release": "",
-                "fetched_at": NOW_UTC.isoformat(),
-                "error": str(e),
-            })
-    
-    return results
+            inputs.items_by_repo[short_name] = fetch_board(repo, history_since)
+            inputs.counts_by_repo[short_name] = fetch_counts(repo["name"], windows, now)
+        except Exception as err:
+            log.error("Failed to fetch %s: %s", repo["name"], err)
+            inputs.errors_by_repo[short_name] = str(err)
+        inputs.releases_by_repo[short_name] = fetch_last_release(repo["name"], repo.get("release"))
+        items = inputs.items_by_repo.get(short_name, [])
+        log.info("  %d board issues, %d with status history", len(items),
+                 sum(1 for item in items if item["events"] is not None))
+    return inputs
 
 
-def write_csv(results: List[Dict[str, Any]], output_file: str):
-    """Write results to a CSV file."""
-    fieldnames = [
-        "repo_name",
-        "display_name",
-        "prs_open",
-        "prs_merged",
-        "issues_ready_for_qa",
-        "issues_qa_completed",
-        "days_since_last_release",
-        "fetched_at",
-    ]
-    
-    with open(output_file, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+# ---------- Reports ----------
+
+def qa_row(items: List[Dict[str, Any]], qa: Optional[Dict[str, Any]], days: int, now: datetime) -> Dict[str, Optional[int]]:
+    trend_keys = [f"ready_for_qa_{lookback}d_ago" for lookback in TREND_LOOKBACK_DAYS]
+    if not qa:
+        empty_keys = ["issues_ready_for_qa", "issues_qa_completed", "issues_qa_failed", "issues_moved_to_ready_for_qa"]
+        return {key: None for key in empty_keys + trend_keys}
+    since = now - timedelta(days=days)
+    row: Dict[str, Optional[int]] = {
+        "issues_ready_for_qa": qa_metrics.count_in_statuses_now(items, qa["ready"]),
+        "issues_qa_completed": qa_metrics.count_moved_into(items, qa["passed"], since, qa.get("passed_from")),
+        "issues_qa_failed": qa_metrics.count_moved_into(items, qa["failed"], since) if qa["failed"] else None,
+        "issues_moved_to_ready_for_qa": qa_metrics.count_moved_into(items, qa["ready"], since),
+    }
+    for key, lookback in zip(trend_keys, TREND_LOOKBACK_DAYS):
+        row[key] = qa_metrics.count_in_statuses_at(items, qa["ready"], now - timedelta(days=lookback))
+    return row
+
+
+def release_row(release: Optional[Release], now: datetime) -> Dict[str, Any]:
+    if release is None:
+        return {"days_since_last_release": None, "last_release_at": None, "release_version": None, "release_source": None}
+    return {
+        "days_since_last_release": qa_metrics.days_since(release.released_at, now),
+        "last_release_at": release.released_at.isoformat(),
+        "release_version": release.version,
+        "release_source": release.source,
+    }
+
+
+def build_repo_row(repo: Dict[str, Any], days: int, inputs: SummaryInputs) -> Dict[str, Any]:
+    short_name = repo["short_name"]
+    counts = inputs.counts_by_repo.get(short_name, {})
+    row: Dict[str, Any] = {
+        "repo_name": repo["name"],
+        "display_name": repo["display_name"],
+        "window_days": days,
+        "fetched_at": inputs.fetched_at.isoformat(),
+        "prs_open": counts.get("prs_open", 0),
+        "prs_draft": counts.get("prs_draft", 0),
+        "prs_approved": counts.get("prs_approved", 0),
+        "prs_merged": counts.get(f"prs_merged_{days}d", 0),
+        "issues_created": counts.get(f"issues_created_{days}d", 0),
+        "bugs_created": counts.get(f"bugs_created_{days}d", 0),
+    }
+    row.update(qa_row(inputs.items_by_repo.get(short_name, []), repo.get("qa"), days, inputs.fetched_at))
+    row.update(release_row(inputs.releases_by_repo.get(short_name), inputs.fetched_at))
+    if short_name in inputs.errors_by_repo:
+        row["error"] = inputs.errors_by_repo[short_name]
+    return row
+
+
+def generate_report(lookback_days: int, inputs: SummaryInputs) -> List[Dict[str, Any]]:
+    rows = [build_repo_row(repo, lookback_days, inputs) for repo in REPOS]
+    for row in rows:
+        log.info(
+            "  %s (%dd): PRs open=%s, merged=%s, ready for QA=%s (1d ago %s, 7d ago %s), QA passed=%s, failed=%s, "
+            "to QA=%s vs new=%s (bugs %s), days since release=%s",
+            row["display_name"], lookback_days, row["prs_open"], row["prs_merged"], row["issues_ready_for_qa"],
+            row["ready_for_qa_1d_ago"], row["ready_for_qa_7d_ago"], row["issues_qa_completed"],
+            row["issues_qa_failed"], row["issues_moved_to_ready_for_qa"], row["issues_created"],
+            row["bugs_created"], row["days_since_last_release"],
+        )
+    return rows
+
+
+def _csv_value(value: Any) -> Any:
+    # The dashboard's CSV reader splits on commas, so keep them out of values.
+    if value is None:
+        return ""
+    return value.replace(",", " ") if isinstance(value, str) else value
+
+
+def write_csv(results: List[Dict[str, Any]], output_file: str) -> None:
+    with open(output_file, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_FIELDNAMES, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(results)
-    
+        for row in results:
+            writer.writerow({key: _csv_value(row.get(key)) for key in CSV_FIELDNAMES})
     log.info("Exported repo summary to %s", output_file)
 
 
-def main():
+def log_totals(days: int, results: List[Dict[str, Any]]) -> None:
+    log.info(
+        "Totals (%dd): PRs open=%s, merged=%s, ready for QA=%s, QA passed=%s, to QA=%s vs new=%s",
+        days,
+        sum(row["prs_open"] for row in results),
+        sum(row["prs_merged"] for row in results),
+        qa_metrics.sum_optional(row["issues_ready_for_qa"] for row in results),
+        qa_metrics.sum_optional(row["issues_qa_completed"] for row in results),
+        qa_metrics.sum_optional(row["issues_moved_to_ready_for_qa"] for row in results),
+        sum(row["issues_created"] for row in results),
+    )
+
+
+def is_cliq_configured() -> bool:
+    return bool(os.getenv("CLIQ_WEBHOOK_TOKEN") or os.getenv("CLIQ_WEBHOOK_URL"))
+
+
+def main() -> None:
     if not GH_TOKEN:
         log.warning("GH_API_READ_TOKEN not set. API rate limits will be very low.")
-    
-    # Fetch issues from all repo-specific project boards
-    log.info("Fetching issues from GitHub Project V2 boards...")
-    issues_by_repo = fetch_all_project_issues()
-    
-    # Generate reports for each time period
+
+    windows = sorted(set(TIME_PERIODS + CLIQ_WINDOWS))
+    inputs = collect_inputs(windows)
+
     reports: Dict[int, List[Dict[str, Any]]] = {}
+    for days in windows:
+        reports[days] = generate_report(days, inputs)
+        log_totals(days, reports[days])
     for days in TIME_PERIODS:
-        log.info("Generating report for last %d days...", days)
-        results = generate_report(days, issues_by_repo)
-        reports[days] = results
+        write_csv(reports[days], f"repo_summary_{days}d.csv")
+    # repo_summary.csv (30 days) is kept for backward compatibility.
+    write_csv(reports[DEFAULT_REPORT_DAYS], "repo_summary.csv")
 
-        # Write to CSV
-        output_file = f"repo_summary_{days}d.csv"
-        write_csv(results, output_file)
-        
-        # Calculate totals
-        total_prs_open = sum(r["prs_open"] for r in results)
-        total_prs_merged = sum(r["prs_merged"] for r in results)
-        total_ready_for_qa = sum(r["issues_ready_for_qa"] for r in results)
-        total_qa_completed = sum(r["issues_qa_completed"] for r in results)
-        
-        log.info(
-            "Totals (%dd): PRs open=%d, merged=%d, ready for QA=%d, QA completed=%d",
-            days,
-            total_prs_open,
-            total_prs_merged,
-            total_ready_for_qa,
-            total_qa_completed,
-        )
-    
-    # Also generate the default repo_summary.csv (30 days) for backward compatibility
-    log.info("Generating default repo_summary.csv (30 days) for backward compatibility...")
-    results_30d = generate_report(30, issues_by_repo)
-    write_csv(results_30d, "repo_summary.csv")
-
-    # Send the daily summary (last 24h + last 7 days) to Zoho Cliq #scrum, if
-    # configured. Reuses the project board issues and the 7-day report already
-    # computed above so only the 1-day window is generated fresh.
-    if os.getenv("CLIQ_WEBHOOK_TOKEN") or os.getenv("CLIQ_WEBHOOK_URL"):
-        try:
-            from cliq_notify import send_daily_update
-
-            log.info("Sending daily update to Zoho Cliq...")
-            send_daily_update(
-                issues_by_repo=issues_by_repo,
-                windows=[1, 7],
-                precomputed={7: reports.get(7)} if reports.get(7) else None,
-            )
-        except Exception as e:
-            log.error("Failed to send Cliq daily update: %s", e)
-    else:
+    if not is_cliq_configured():
         log.info("CLIQ_WEBHOOK_TOKEN not set; skipping Cliq daily update.")
+        return
+    try:
+        from cliq_notify import send_daily_update
+
+        log.info("Sending daily update to Zoho Cliq...")
+        send_daily_update(inputs=inputs, windows=CLIQ_WINDOWS, precomputed=reports)
+    except Exception as err:
+        log.error("Failed to send Cliq daily update: %s", err)
 
 
 if __name__ == "__main__":
