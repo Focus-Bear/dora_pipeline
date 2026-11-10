@@ -134,23 +134,54 @@ bash scripts/upload-to-r2.sh --dry-run
 bash scripts/upload-to-r2.sh
 ```
 
-## Repo summary metrics (`repo_summary.py`)
+## Dev report and repo summary metrics (`cliq_notify.py`, `repo_summary.py`)
 
-Written to `repo_summary_7d.csv` / `repo_summary_30d.csv` (dashboard "Overall
-Velocity Report" page) and posted daily to Zoho Cliq #scrum (`cliq_notify.py`,
-last 24 h + last 7 days). Per repo, plus totals:
+The daily Zoho Cliq #scrum post is the dev report. It covers the **last 7 days**,
+and every figure is shown next to the **7 days before** ("prev"). The same
+figures, for 7 or 30 days, are written to `repo_summary_7d.csv` /
+`repo_summary_30d.csv` for the dashboard's "Overall Velocity Report" page.
+Per repo, plus totals:
 
-| Metric | Source |
-|--------|--------|
-| PRs open (draft / approved split), PRs merged | GitHub search counts, one batched GraphQL query per repo |
-| QA passed / QA failed | Issues whose board Status moved into the repo's passed / failed column in the window (`ProjectV2ItemStatusChangedEvent` timeline events) |
-| Ready for QA now, 24 h ago, 7 d ago | Current board Status; past counts are reconstructed from the same status-change history, so the trend needs no stored snapshots |
-| Roadmap progress | Issues moved into Ready for QA vs new issues (and new `bug`-labelled issues) filed in the window; ✅ when the ratio is ≥ 1 |
-| Days since last release | Per platform, see below |
+| Section | Figure | Source |
+|---------|--------|--------|
+| 1. Dev velocity | PRs merged | GitHub search `is:pr is:merged merged:<window>`, per repo |
+| | PRs open now (draft / approved split) | GitHub search `is:pr is:open`, per repo |
+| 2. Quality | New issues (and how many are labelled `bug`) | GitHub search `is:issue created:<window>`, per repo |
+| | QA failed of QA tested | The repo's board: issues whose Status moved into its QA Failed column (failed) or its QA Failed / passed column (tested) in the window |
+| 3. QA backlog | Issues in Ready for QA now, and 7 days ago | The repo's board: current Status; the 7-days-ago count is rebuilt from the status-change history |
+| | How long each has waited, median, oldest | Time since the board item's Status value was last set |
+| Appendix | Days since last release | Per platform, see below |
 
-Each repo's board columns are configured in `REPOS` (`qa.ready` / `qa.passed` /
-`qa.failed`). Backend has no QA-failed column; the browser extension board has
-no QA columns at all, so those figures show as `–`.
+All search counts for a repo come from one batched GraphQL query; board data
+comes from Projects v2 (`ProjectV2ItemStatusChangedEvent` timeline events).
+
+**What counts as a QA result.** There is no `qa-failed` label in any Focus Bear
+repo, so QA results come from board Status only. A move counts only when it
+comes out of the board's QA stage: its Ready for QA column or a column QA works
+in, such as QA in Progress or For Dev QA (a failure may also come out of the
+passed column). Each repo lists these columns in `REPOS`
+(`qa.ready` / `qa.testing` / `qa.passed` / `qa.failed`). This leaves out issues
+filed straight into QA Failed and bulk board clean-ups, which GitHub records
+with no status history. Linux has no QA Failed column, and the browser
+extension board has no QA columns, so their failure figures show as `–`.
+
+The backlog is per board, so an issue from another repo filed on a repo's board
+is counted on that board. Closed issues still in Ready for QA are counted: the
+merge closes the issue before QA has checked it.
+
+### Reproducing the report
+
+One command, read-only (GitHub queries only; nothing is posted without
+`CLIQ_WEBHOOK_TOKEN`):
+
+```bash
+pip install -r requirements.txt
+GH_API_READ_TOKEN=$(gh auth token) python cliq_notify.py --dry-run --backlog-csv qa_backlog.csv
+```
+
+It prints the Cliq message and writes `qa_backlog.csv`: every issue waiting in
+Ready for QA on every board, oldest first, with its link. `--days N` reports a
+different window, compared with the N days before it. It takes about 3 minutes.
 
 Release signal per repo (`release_velocity.py`; falls back to GitHub Releases, then tags):
 
@@ -163,11 +194,10 @@ Release signal per repo (`release_velocity.py`; falls back to GitHub Releases, t
 | Backend | Last successful `github-aws-prod-deployment.yaml` / `github-aws-hotfix-deploy.yaml` run |
 | Linux | Last successful `build-deb.yml` run on `main` |
 
-Run locally without posting to Cliq (leave `CLIQ_WEBHOOK_TOKEN` unset; CSVs are
-written to the current directory):
+To write the dashboard CSVs locally (leave `CLIQ_WEBHOOK_TOKEN` unset so
+nothing is posted), and to run the tests:
 
 ```bash
-GH_API_READ_TOKEN=$(gh auth token) python cliq_notify.py --dry-run
 GH_API_READ_TOKEN=$(gh auth token) python repo_summary.py
 python -m unittest discover -s tests -t .
 ```

@@ -4,19 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertTriangle,
+  Bug,
   CheckCircle,
   Clock,
   GitMerge,
   GitPullRequest,
+  Hourglass,
   RefreshCw,
   Rocket,
-  Route,
   XCircle,
 } from "lucide-react";
 import {
   NOT_AVAILABLE,
-  formatRatio,
-  progressIndicator,
+  failureDetail,
   sumKnown,
   trendLabel,
 } from "@/lib/repo-summary-metrics";
@@ -28,15 +28,20 @@ interface RepoMetrics {
   prsDraft: number;
   prsApproved: number;
   prsMerged: number;
-  // QA figures are null for repos whose board has no QA columns.
-  issuesReadyForQA: number | null;
-  readyForQA1dAgo: number | null;
-  readyForQA7dAgo: number | null;
-  issuesQACompleted: number | null;
-  issuesQAFailed: number | null;
-  issuesMovedToReadyForQA: number | null;
+  prsMergedPrev: number;
   issuesCreated: number;
+  issuesCreatedPrev: number;
   bugsCreated: number;
+  // QA figures are null for repos whose board has no QA columns; the failed
+  // counts are also null for boards without a QA Failed column.
+  issuesQAFailed: number | null;
+  issuesQAFailedPrev: number | null;
+  issuesQATested: number | null;
+  issuesQATestedPrev: number | null;
+  issuesReadyForQA: number | null;
+  readyForQA7dAgo: number | null;
+  qaBacklogMedianDays: number | null;
+  qaBacklogOldestDays: number | null;
   daysSinceLastRelease: number | null;
   releaseVersion: string;
   releaseSource: string;
@@ -74,14 +79,18 @@ function parseCSV(csvText: string): RepoMetrics[] {
       prsDraft: parseInteger(row["prs_draft"]),
       prsApproved: parseInteger(row["prs_approved"]),
       prsMerged: parseInteger(row["prs_merged"]),
-      issuesReadyForQA: parseOptionalInt(row["issues_ready_for_qa"]),
-      readyForQA1dAgo: parseOptionalInt(row["ready_for_qa_1d_ago"]),
-      readyForQA7dAgo: parseOptionalInt(row["ready_for_qa_7d_ago"]),
-      issuesQACompleted: parseOptionalInt(row["issues_qa_completed"]),
-      issuesQAFailed: parseOptionalInt(row["issues_qa_failed"]),
-      issuesMovedToReadyForQA: parseOptionalInt(row["issues_moved_to_ready_for_qa"]),
+      prsMergedPrev: parseInteger(row["prs_merged_prev"]),
       issuesCreated: parseInteger(row["issues_created"]),
+      issuesCreatedPrev: parseInteger(row["issues_created_prev"]),
       bugsCreated: parseInteger(row["bugs_created"]),
+      issuesQAFailed: parseOptionalInt(row["issues_qa_failed"]),
+      issuesQAFailedPrev: parseOptionalInt(row["issues_qa_failed_prev"]),
+      issuesQATested: parseOptionalInt(row["issues_qa_tested"]),
+      issuesQATestedPrev: parseOptionalInt(row["issues_qa_tested_prev"]),
+      issuesReadyForQA: parseOptionalInt(row["issues_ready_for_qa"]),
+      readyForQA7dAgo: parseOptionalInt(row["ready_for_qa_7d_ago"]),
+      qaBacklogMedianDays: parseOptionalInt(row["qa_backlog_median_days"]),
+      qaBacklogOldestDays: parseOptionalInt(row["qa_backlog_oldest_days"]),
       daysSinceLastRelease: parseOptionalInt(row["days_since_last_release"]),
       releaseVersion: row["release_version"] || "",
       releaseSource: row["release_source"] || "",
@@ -96,15 +105,16 @@ function showValue(value: number | null): number | string {
   return value === null ? NOT_AVAILABLE : value;
 }
 
-function readyTrend(current: number | null, dayAgo: number | null, weekAgo: number | null): string {
-  return `${trendLabel(current, dayAgo)} vs 24h · ${trendLabel(current, weekAgo)} vs 7d`;
+function previousDetail(previous: number): string {
+  return `prev ${previous}`;
 }
 
-function roadmapDetail(movedToQA: number, created: number, bugs: number): string {
-  const bugText = `${bugs} bug${bugs === 1 ? "" : "s"}`;
-  const indicator = progressIndicator(movedToQA, created);
-  if (indicator === NOT_AVAILABLE) return bugText;
-  return `${indicator} ${formatRatio(movedToQA, created)} · ${bugText}`;
+function backlogTrend(current: number | null, weekAgo: number | null): string {
+  return `${trendLabel(current, weekAgo)} vs 7 days ago`;
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function MetricCard({
@@ -134,106 +144,172 @@ function MetricCard({
   );
 }
 
-function RepoCardContent({ metrics, timePeriod }: { metrics: RepoMetrics; timePeriod: number }) {
-  const hasQABoard = metrics.issuesReadyForQA !== null;
-  const movedToQA = metrics.issuesMovedToReadyForQA ?? 0;
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return <h3 className="col-span-full text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>;
+}
+
+interface SectionFigures {
+  prsOpen: number;
+  prsDraft: number;
+  prsApproved: number;
+  prsMerged: number;
+  prsMergedPrev: number;
+  issuesCreated: number;
+  issuesCreatedPrev: number;
+  bugsCreated: number;
+  issuesQAFailed: number | null;
+  issuesQAFailedPrev: number | null;
+  issuesQATested: number | null;
+  issuesQATestedPrev: number | null;
+  issuesReadyForQA: number | null;
+  readyForQA7dAgo: number | null;
+  qaBacklogMedianDays: number | null;
+  qaBacklogOldestDays: number | null;
+}
+
+function VelocityTiles({ figures }: { figures: SectionFigures }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <>
       <MetricCard
-        title="PRs Open"
-        value={metrics.prsOpen}
-        icon={GitPullRequest}
-        color="text-primary"
-        detail={`${metrics.prsDraft} draft · ${metrics.prsApproved} approved`}
-      />
-      <MetricCard
-        title="PRs Merged"
-        value={metrics.prsMerged}
+        title="PRs merged"
+        value={figures.prsMerged}
         icon={GitMerge}
         color="text-chart-2"
+        detail={previousDetail(figures.prsMergedPrev)}
       />
+      <MetricCard
+        title="PRs open now"
+        value={figures.prsOpen}
+        icon={GitPullRequest}
+        color="text-primary"
+        detail={`${figures.prsDraft} draft · ${figures.prsApproved} approved`}
+      />
+    </>
+  );
+}
+
+function QualityTiles({ figures }: { figures: SectionFigures }) {
+  const hasFailedColumn = figures.issuesQAFailed !== null;
+  return (
+    <>
+      <MetricCard
+        title="New issues"
+        value={figures.issuesCreated}
+        icon={Bug}
+        color="text-chart-1"
+        detail={`${plural(figures.bugsCreated, "bug")} · ${previousDetail(figures.issuesCreatedPrev)}`}
+      />
+      <MetricCard
+        title="QA failed / tested"
+        value={hasFailedColumn ? `${figures.issuesQAFailed} / ${showValue(figures.issuesQATested)}` : NOT_AVAILABLE}
+        icon={figures.issuesQAFailed ? XCircle : CheckCircle}
+        color={figures.issuesQAFailed ? "text-destructive" : "text-green-600"}
+        detail={hasFailedColumn
+          ? failureDetail(figures.issuesQAFailed, figures.issuesQATested, figures.issuesQAFailedPrev, figures.issuesQATestedPrev)
+          : "no QA Failed column"}
+      />
+    </>
+  );
+}
+
+function BacklogTiles({ figures }: { figures: SectionFigures }) {
+  return (
+    <>
+      <MetricCard
+        title="Ready for QA"
+        value={showValue(figures.issuesReadyForQA)}
+        icon={Clock}
+        color="text-chart-3"
+        detail={backlogTrend(figures.issuesReadyForQA, figures.readyForQA7dAgo)}
+      />
+      <MetricCard
+        title="Oldest wait"
+        value={showValue(figures.qaBacklogOldestDays)}
+        icon={Hourglass}
+        color="text-chart-4"
+        suffix={figures.qaBacklogOldestDays === null ? undefined : "d"}
+        detail={figures.qaBacklogMedianDays === null ? undefined : `median ${figures.qaBacklogMedianDays}d`}
+      />
+    </>
+  );
+}
+
+function RepoCardContent({ metrics }: { metrics: RepoMetrics }) {
+  const hasQABoard = metrics.issuesReadyForQA !== null;
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <SectionHeading>1. Dev velocity</SectionHeading>
+      <VelocityTiles figures={metrics} />
+      <SectionHeading>2. Quality</SectionHeading>
+      <QualityTiles figures={metrics} />
       {hasQABoard && (
         <>
-          <MetricCard
-            title="Ready for QA"
-            value={showValue(metrics.issuesReadyForQA)}
-            icon={Clock}
-            color="text-chart-3"
-            detail={readyTrend(metrics.issuesReadyForQA, metrics.readyForQA1dAgo, metrics.readyForQA7dAgo)}
-          />
-          <MetricCard
-            title="QA Passed / Failed"
-            value={`${showValue(metrics.issuesQACompleted)} / ${showValue(metrics.issuesQAFailed)}`}
-            icon={metrics.issuesQAFailed ? XCircle : CheckCircle}
-            color={metrics.issuesQAFailed ? "text-destructive" : "text-green-600"}
-          />
+          <SectionHeading>3. QA backlog</SectionHeading>
+          <BacklogTiles figures={metrics} />
         </>
       )}
-      <MetricCard
-        title={hasQABoard ? `To QA vs new issues (${timePeriod}d)` : `New issues (${timePeriod}d)`}
-        value={hasQABoard ? `${movedToQA} / ${metrics.issuesCreated}` : metrics.issuesCreated}
-        icon={Route}
-        color="text-chart-1"
-        detail={hasQABoard ? roadmapDetail(movedToQA, metrics.issuesCreated, metrics.bugsCreated) : undefined}
-      />
       {metrics.daysSinceLastRelease !== null && (
-        <MetricCard
-          title="Days Since Release"
-          value={metrics.daysSinceLastRelease}
-          icon={Rocket}
-          color="text-orange-500"
-          suffix="d"
-          detail={[metrics.releaseVersion, metrics.releaseSource].filter(Boolean).join(" · ")}
-        />
+        <>
+          <SectionHeading>Appendix</SectionHeading>
+          <MetricCard
+            title="Days since release"
+            value={metrics.daysSinceLastRelease}
+            icon={Rocket}
+            color="text-orange-500"
+            suffix="d"
+            detail={[metrics.releaseVersion, metrics.releaseSource].filter(Boolean).join(" · ")}
+          />
+        </>
       )}
     </div>
   );
 }
 
-function RepoCard({ metrics, timePeriod }: { metrics: RepoMetrics; timePeriod: number }) {
+function RepoCard({ metrics }: { metrics: RepoMetrics }) {
   return (
     <Card className="shadow-md border border-border">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">{metrics.displayName}</CardTitle>
       </CardHeader>
       <CardContent>
-        <RepoCardContent metrics={metrics} timePeriod={timePeriod} />
+        <RepoCardContent metrics={metrics} />
       </CardContent>
     </Card>
   );
 }
 
-function summarise(metrics: RepoMetrics[]) {
+function summarise(metrics: RepoMetrics[]): SectionFigures {
   const sum = (pick: (repo: RepoMetrics) => number) => metrics.reduce((total, repo) => total + pick(repo), 0);
   const sumOptional = (pick: (repo: RepoMetrics) => number | null) => sumKnown(metrics.map(pick));
+  // The failure rate only covers boards that have a QA Failed column.
+  const withFailedColumn = metrics.filter((repo) => repo.issuesQAFailed !== null);
+  const sumFailedBoards = (pick: (repo: RepoMetrics) => number | null) => sumKnown(withFailedColumn.map(pick));
+  const knownOldest = metrics.map((repo) => repo.qaBacklogOldestDays).filter((days): days is number => days !== null);
   return {
     prsOpen: sum((repo) => repo.prsOpen),
     prsDraft: sum((repo) => repo.prsDraft),
     prsApproved: sum((repo) => repo.prsApproved),
     prsMerged: sum((repo) => repo.prsMerged),
-    issuesReadyForQA: sumOptional((repo) => repo.issuesReadyForQA),
-    readyForQA1dAgo: sumOptional((repo) => repo.readyForQA1dAgo),
-    readyForQA7dAgo: sumOptional((repo) => repo.readyForQA7dAgo),
-    issuesQACompleted: sumOptional((repo) => repo.issuesQACompleted),
-    issuesQAFailed: sumOptional((repo) => repo.issuesQAFailed),
-    issuesMovedToReadyForQA: sum((repo) => repo.issuesMovedToReadyForQA ?? 0),
+    prsMergedPrev: sum((repo) => repo.prsMergedPrev),
     issuesCreated: sum((repo) => repo.issuesCreated),
+    issuesCreatedPrev: sum((repo) => repo.issuesCreatedPrev),
     bugsCreated: sum((repo) => repo.bugsCreated),
+    issuesQAFailed: sumFailedBoards((repo) => repo.issuesQAFailed),
+    issuesQAFailedPrev: sumFailedBoards((repo) => repo.issuesQAFailedPrev),
+    issuesQATested: sumFailedBoards((repo) => repo.issuesQATested),
+    issuesQATestedPrev: sumFailedBoards((repo) => repo.issuesQATestedPrev),
+    issuesReadyForQA: sumOptional((repo) => repo.issuesReadyForQA),
+    readyForQA7dAgo: sumOptional((repo) => repo.readyForQA7dAgo),
+    // A median of medians is not a median, so the summary shows only the oldest wait.
+    qaBacklogMedianDays: null,
+    qaBacklogOldestDays: knownOldest.length === 0 ? null : Math.max(...knownOldest),
   };
-}
-
-function averageDaysSinceRelease(metrics: RepoMetrics[]): number | null {
-  const withRelease = metrics.filter((m) => m.daysSinceLastRelease !== null);
-  if (withRelease.length === 0) return null;
-  const sum = withRelease.reduce((s, m) => s + (m.daysSinceLastRelease ?? 0), 0);
-  return Math.round(sum / withRelease.length);
 }
 
 const SUMMARY_TILE_COUNT = 6;
 
 function SummaryCard({ metrics, isLoading, timePeriod }: { metrics: RepoMetrics[]; isLoading: boolean; timePeriod: number }) {
   const totals = summarise(metrics);
-  const avgDaysSinceRelease = averageDaysSinceRelease(metrics);
 
   return (
     <Card className="shadow-lg border-2 border-primary/20">
@@ -241,6 +317,9 @@ function SummaryCard({ metrics, isLoading, timePeriod }: { metrics: RepoMetrics[
         <CardTitle className="text-xl text-center">
           Summary - All Repositories
         </CardTitle>
+        <p className="text-sm text-muted-foreground text-center">
+          Last {timePeriod} days; "prev" is the {timePeriod} days before that.
+        </p>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -250,49 +329,19 @@ function SummaryCard({ metrics, isLoading, timePeriod }: { metrics: RepoMetrics[
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <MetricCard
-              title="Total PRs Open"
-              value={totals.prsOpen}
-              icon={GitPullRequest}
-              color="text-primary"
-              detail={`${totals.prsDraft} draft · ${totals.prsApproved} approved`}
-            />
-            <MetricCard
-              title="Total PRs Merged"
-              value={totals.prsMerged}
-              icon={GitMerge}
-              color="text-chart-2"
-            />
-            <MetricCard
-              title="Total Ready for QA"
-              value={showValue(totals.issuesReadyForQA)}
-              icon={Clock}
-              color="text-chart-3"
-              detail={readyTrend(totals.issuesReadyForQA, totals.readyForQA1dAgo, totals.readyForQA7dAgo)}
-            />
-            <MetricCard
-              title="Total QA Passed / Failed"
-              value={`${showValue(totals.issuesQACompleted)} / ${showValue(totals.issuesQAFailed)}`}
-              icon={CheckCircle}
-              color="text-green-600"
-            />
-            <MetricCard
-              title={`To QA vs new issues (${timePeriod}d)`}
-              value={`${totals.issuesMovedToReadyForQA} / ${totals.issuesCreated}`}
-              icon={Route}
-              color="text-chart-1"
-              detail={roadmapDetail(totals.issuesMovedToReadyForQA, totals.issuesCreated, totals.bugsCreated)}
-            />
-            {avgDaysSinceRelease !== null && (
-              <MetricCard
-                title="Avg Days Since Release"
-                value={avgDaysSinceRelease}
-                icon={Rocket}
-                color="text-orange-500"
-                suffix="d"
-              />
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-4">
+              <SectionHeading>1. Dev velocity</SectionHeading>
+              <VelocityTiles figures={totals} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <SectionHeading>2. Quality</SectionHeading>
+              <QualityTiles figures={totals} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <SectionHeading>3. QA backlog</SectionHeading>
+              <BacklogTiles figures={totals} />
+            </div>
           </div>
         )}
       </CardContent>
@@ -305,7 +354,7 @@ export default function RepoSummary() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [timePeriod, setTimePeriod] = useState<7 | 30>(30);
+  const [timePeriod, setTimePeriod] = useState<7 | 30>(7);
 
   const fetchData = async (days: 7 | 30) => {
     setIsLoading(true);
@@ -425,7 +474,7 @@ export default function RepoSummary() {
             ))
           ) : (
             repoMetrics.map((metrics) => (
-              <RepoCard key={metrics.repoName} metrics={metrics} timePeriod={timePeriod} />
+              <RepoCard key={metrics.repoName} metrics={metrics} />
             ))
           )}
         </div>

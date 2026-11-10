@@ -1,11 +1,12 @@
 """
-Pure calculations for the QA, roadmap and release-velocity metrics.
+Pure calculations for the QA, QA-backlog and release-velocity metrics.
 
 Nothing in here touches the network, so every function can be unit-tested
 with hand-built inputs (see tests/test_qa_metrics.py).
 
 A board item, as produced by repo_summary.fetch_project_issues_for_repo, is a
 dict with at least:
+    number, title, url, repository   the issue, for the QA backlog listing
     status             current Status option name (or None)
     status_updated_at  datetime the current Status value was set (or None)
     item_created_at    datetime the issue was added to the board (or None)
@@ -18,6 +19,7 @@ dict with at least:
 from __future__ import annotations
 
 import math
+import statistics
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -26,12 +28,6 @@ UTC = timezone.utc
 
 SECONDS_PER_DAY = 86400
 
-# A dev-to-QA ratio at or above this means issues reach QA at least as fast
-# as new ones are filed.
-ROADMAP_AHEAD_RATIO = 1.0
-
-INDICATOR_AHEAD = "✅"
-INDICATOR_BEHIND = "⚠️"
 NOT_AVAILABLE = "–"
 
 ARROW_UP = "↑"
@@ -44,6 +40,19 @@ class StatusChange:
     at: datetime
     previous: Optional[str]
     current: Optional[str]
+
+
+@dataclass(frozen=True)
+class BacklogEntry:
+    """An issue waiting in a Ready for QA column, and for how long."""
+
+    number: Optional[int]
+    title: str
+    url: str
+    repository: str
+    status: str
+    waiting_since: Optional[datetime]
+    age_days: Optional[int]
 
 
 def parse_iso(value: Optional[str]) -> Optional[datetime]:
@@ -89,9 +98,8 @@ def count_in_statuses_at(items: Iterable[Dict[str, Any]], statuses: Sequence[str
     return sum(1 for item in items if status_at(item, at) in wanted)
 
 
-def count_in_statuses_now(items: Iterable[Dict[str, Any]], statuses: Sequence[str]) -> int:
-    wanted = set(statuses)
-    return sum(1 for item in items if item.get("status") in wanted)
+def _in_window(at: datetime, since: datetime, until: Optional[datetime]) -> bool:
+    return at > since and (until is None or at <= until)
 
 
 def moved_into(
@@ -99,9 +107,11 @@ def moved_into(
     statuses: Sequence[str],
     since: datetime,
     required_previous: Optional[Sequence[str]] = None,
+    until: Optional[datetime] = None,
 ) -> bool:
     """
-    Whether the item moved into one of `statuses` after `since`.
+    Whether the item moved into one of `statuses` after `since` (and no later
+    than `until`, when given).
 
     Moves between two options of the same group (e.g. the two "Ready for QA"
     options some boards have) do not count. When `required_previous` is given
@@ -114,19 +124,20 @@ def moved_into(
 
     events = item.get("events") or []
     for change in events:
-        if change.at <= since or change.current not in wanted or change.previous in wanted:
+        if not _in_window(change.at, since, until) or change.current not in wanted or change.previous in wanted:
             continue
         if allowed_previous is not None and change.previous not in allowed_previous:
             continue
         return True
 
-    return _moved_without_recorded_history(item, wanted, since, allowed_previous)
+    return _moved_without_recorded_history(item, wanted, since, until, allowed_previous)
 
 
 def _moved_without_recorded_history(
     item: Dict[str, Any],
     wanted: set,
     since: datetime,
+    until: Optional[datetime],
     allowed_previous: Optional[set],
 ) -> bool:
     """
@@ -137,7 +148,7 @@ def _moved_without_recorded_history(
     if allowed_previous is not None or item.get("events"):
         return False
     status_updated = item.get("status_updated_at")
-    return bool(item.get("status") in wanted and status_updated and status_updated > since)
+    return bool(item.get("status") in wanted and status_updated and _in_window(status_updated, since, until))
 
 
 def count_moved_into(
@@ -145,8 +156,64 @@ def count_moved_into(
     statuses: Sequence[str],
     since: datetime,
     required_previous: Optional[Sequence[str]] = None,
+    until: Optional[datetime] = None,
 ) -> int:
-    return sum(1 for item in items if moved_into(item, statuses, since, required_previous))
+    return sum(1 for item in items if moved_into(item, statuses, since, required_previous, until))
+
+
+def count_tested(
+    items: Iterable[Dict[str, Any]],
+    passed: Sequence[str],
+    failed: Sequence[str],
+    in_qa: Sequence[str],
+    since: datetime,
+    until: Optional[datetime] = None,
+) -> int:
+    """
+    Issues QA finished with in the window: moved out of an `in_qa` status into
+    `passed` or `failed` (a failure may also come out of `passed`). Each issue
+    counts once, whether it passed, failed or both.
+    """
+    failed_from = list(in_qa) + list(passed)
+    return sum(
+        1
+        for item in items
+        if moved_into(item, passed, since, in_qa, until) or moved_into(item, failed, since, failed_from, until)
+    )
+
+
+def waiting_since(item: Dict[str, Any]) -> Optional[datetime]:
+    """When the item got its current Status (falls back to when it joined the board)."""
+    return item.get("status_updated_at") or item.get("item_created_at")
+
+
+def qa_backlog(items: Iterable[Dict[str, Any]], statuses: Sequence[str], now: datetime) -> List[BacklogEntry]:
+    """Items currently in one of `statuses`, oldest wait first (unknown ages last)."""
+    wanted = set(statuses)
+    entries = [
+        BacklogEntry(
+            number=item.get("number"),
+            title=item.get("title") or "",
+            url=item.get("url") or "",
+            repository=item.get("repository") or "",
+            status=item.get("status") or "",
+            waiting_since=waiting_since(item),
+            age_days=days_since(waiting_since(item), now),
+        )
+        for item in items
+        if item.get("status") in wanted
+    ]
+    return sorted(entries, key=lambda entry: (entry.age_days is None, -(entry.age_days or 0)))
+
+
+def median_age_days(entries: Sequence[BacklogEntry]) -> Optional[int]:
+    ages = [entry.age_days for entry in entries if entry.age_days is not None]
+    return int(statistics.median(ages)) if ages else None
+
+
+def oldest_age_days(entries: Sequence[BacklogEntry]) -> Optional[int]:
+    ages = [entry.age_days for entry in entries if entry.age_days is not None]
+    return max(ages) if ages else None
 
 
 def trend_label(current: Optional[int], previous: Optional[int]) -> str:
@@ -161,40 +228,18 @@ def trend_label(current: Optional[int], previous: Optional[int]) -> str:
     return ARROW_FLAT
 
 
-def progress_ratio(moved_to_qa: int, created: int) -> Optional[float]:
-    """Issues moved to Ready for QA per new issue filed. None when nothing was filed."""
-    if created <= 0:
-        return None
-    return moved_to_qa / created
-
-
-def is_ahead(moved_to_qa: int, created: int) -> Optional[bool]:
-    """Whether devs got more issues to QA than were filed. None when there was no activity."""
-    if moved_to_qa == 0 and created == 0:
-        return None
-    ratio = progress_ratio(moved_to_qa, created)
-    return ratio is None or ratio >= ROADMAP_AHEAD_RATIO
-
-
-def progress_indicator(moved_to_qa: int, created: int) -> str:
-    ahead = is_ahead(moved_to_qa, created)
-    if ahead is None:
-        return NOT_AVAILABLE
-    return INDICATOR_AHEAD if ahead else INDICATOR_BEHIND
-
-
-def format_ratio(moved_to_qa: int, created: int) -> str:
-    ratio = progress_ratio(moved_to_qa, created)
-    if ratio is None:
-        return "∞" if moved_to_qa > 0 else NOT_AVAILABLE
-    return f"{ratio:.2f}×"
-
-
 def days_since(when: Optional[datetime], now: datetime) -> Optional[int]:
     """Whole days elapsed since `when` (never negative)."""
     if when is None:
         return None
     return max(0, math.floor((now - when).total_seconds() / SECONDS_PER_DAY))
+
+
+def percent(part: Optional[int], whole: Optional[int]) -> Optional[int]:
+    """`part` as a whole-number percentage of `whole`; None when it cannot be computed."""
+    if part is None or not whole:
+        return None
+    return round(100 * part / whole)
 
 
 def sum_optional(values: Iterable[Optional[int]]) -> Optional[int]:

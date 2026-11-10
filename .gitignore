@@ -18,3 +18,4 @@ repo_summary_30d.csv
 # Python bytecode
 __pycache__/
 *.pyc
+qa_backlog.csv

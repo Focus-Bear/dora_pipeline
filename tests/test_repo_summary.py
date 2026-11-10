@@ -13,10 +13,13 @@ MAC = next(repo for repo in rs.REPOS if repo["short_name"] == "Mac-App")
 EXTENSION = next(repo for repo in rs.REPOS if repo["qa"] is None)
 
 
-def board_item(status, events, item_updated):
+def board_item(status, events, item_updated, number=1):
     return {
-        "id": "I_1",
-        "number": 1,
+        "id": f"I_{number}",
+        "number": number,
+        "title": f"Issue {number}",
+        "url": f"https://github.com/Focus-Bear/Mac-App/issues/{number}",
+        "repository": "Focus-Bear/Mac-App",
         "status": status,
         "status_updated_at": events[-1].at if events else None,
         "item_created_at": NOW - timedelta(days=100),
@@ -31,7 +34,15 @@ class CountQueryTests(unittest.TestCase):
         self.assertEqual(queries["prs_open"], "repo:Focus-Bear/Mac-App is:pr is:open")
         self.assertEqual(queries["prs_merged_1d"], "repo:Focus-Bear/Mac-App is:pr is:merged merged:>=2026-10-21T12:00:00Z")
         self.assertEqual(queries["bugs_created_7d"], "repo:Focus-Bear/Mac-App is:issue label:bug created:>=2026-10-15T12:00:00Z")
-        self.assertEqual(len(queries), 3 + 3 * 2)
+        self.assertEqual(
+            queries["prs_merged_prev_7d"],
+            "repo:Focus-Bear/Mac-App is:pr is:merged merged:2026-10-08T12:00:00Z..2026-10-15T11:59:59Z",
+        )
+        self.assertEqual(
+            queries["issues_created_prev_1d"],
+            "repo:Focus-Bear/Mac-App is:issue created:2026-10-20T12:00:00Z..2026-10-21T11:59:59Z",
+        )
+        self.assertEqual(len(queries), 3 + 5 * 2)
 
 
 class StatusChangeParsingTests(unittest.TestCase):
@@ -63,13 +74,21 @@ class ReportRowTests(unittest.TestCase):
             "Ready for QA",
             [StatusChange(NOW - timedelta(days=3), "In Progress", "Ready for QA")],
             NOW - timedelta(days=3),
+            number=2,
+        )
+        failed_last_week = board_item(
+            "QA Failed",
+            [StatusChange(NOW - timedelta(days=10), "QA in Progress", "QA Failed")],
+            NOW - timedelta(days=10),
+            number=3,
         )
         self.inputs = rs.SummaryInputs(
             fetched_at=NOW,
-            items_by_repo={"Mac-App": [passed, waiting], "chrome_extension": []},
+            items_by_repo={"Mac-App": [passed, waiting, failed_last_week], "chrome_extension": []},
             counts_by_repo={
                 "Mac-App": {"prs_open": 15, "prs_draft": 2, "prs_approved": 1, "prs_merged_7d": 22,
-                            "issues_created_7d": 27, "bugs_created_7d": 19},
+                            "prs_merged_prev_7d": 18, "issues_created_7d": 27, "issues_created_prev_7d": 30,
+                            "bugs_created_7d": 19},
                 "chrome_extension": {"prs_open": 3},
             },
             releases_by_repo={"Mac-App": Release(NOW - timedelta(days=49, hours=2), "3.35.535", "Sparkle appcast")},
@@ -83,7 +102,14 @@ class ReportRowTests(unittest.TestCase):
         self.assertEqual(row["issues_qa_completed"], 1)
         self.assertEqual(row["issues_qa_failed"], 0)
         self.assertEqual(row["issues_moved_to_ready_for_qa"], 1)
+        self.assertEqual(row["issues_qa_tested"], 1)
+        self.assertEqual(row["issues_qa_failed_prev"], 1)
+        self.assertEqual(row["issues_qa_tested_prev"], 1)
+        self.assertEqual(row["qa_backlog_oldest_days"], 3)
+        self.assertEqual([entry.number for entry in row["qa_backlog"]], [2])
         self.assertEqual(row["prs_merged"], 22)
+        self.assertEqual(row["prs_merged_prev"], 18)
+        self.assertEqual(row["issues_created_prev"], 30)
         self.assertEqual(row["days_since_last_release"], 49)
         self.assertEqual(row["release_version"], "3.35.535")
 
@@ -91,6 +117,8 @@ class ReportRowTests(unittest.TestCase):
         row = rs.build_repo_row(EXTENSION, 7, self.inputs)
         self.assertIsNone(row["issues_ready_for_qa"])
         self.assertIsNone(row["issues_qa_completed"])
+        self.assertIsNone(row["issues_qa_tested"])
+        self.assertEqual(row["qa_backlog"], [])
         self.assertIsNone(row["days_since_last_release"])
         self.assertEqual(row["prs_open"], 3)
 
@@ -106,6 +134,28 @@ class ReportRowTests(unittest.TestCase):
         self.assertEqual(header[:8], rs.CSV_FIELDNAMES[:8])
         self.assertEqual(written[1]["issues_ready_for_qa"], "")
         self.assertEqual(written[0]["ready_for_qa_1d_ago"], "2")
+
+    def test_backlog_csv_lists_every_board_oldest_first(self):
+        rows = [rs.build_repo_row(MAC, 7, self.inputs), rs.build_repo_row(EXTENSION, 7, self.inputs)]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "backlog.csv")
+            rs.write_backlog_csv(rows, path)
+            with open(path, encoding="utf-8") as handle:
+                written = list(csv.DictReader(handle))
+        self.assertEqual(len(written), 1)
+        self.assertEqual(written[0]["board"], "Mac")
+        self.assertEqual(written[0]["number"], "2")
+        self.assertEqual(written[0]["age_days"], "3")
+
+
+class BoardConfigTests(unittest.TestCase):
+    def test_every_qa_board_names_its_columns(self):
+        for repo in rs.REPOS:
+            if repo["qa"] is None:
+                continue
+            with self.subTest(repo=repo["short_name"]):
+                self.assertEqual(set(repo["qa"]), {"ready", "testing", "passed", "failed"})
+                self.assertTrue(repo["qa"]["ready"])
 
 
 if __name__ == "__main__":
