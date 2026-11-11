@@ -1,11 +1,8 @@
-// Display helpers for the repo summary page. They mirror qa_metrics.py, which
-// computes the same indicators for the Cliq message, so both read alike.
+// Display helpers for the repo summary page. They mirror qa_metrics.py and
+// cliq_notify.py, which compute the same figures for the Cliq message, so both
+// read alike.
 
 export const NOT_AVAILABLE = "–";
-
-// A dev-to-QA ratio at or above this means issues reach QA at least as fast
-// as new ones are filed.
-const ROADMAP_AHEAD_RATIO = 1;
 
 export function trendLabel(current: number | null, previous: number | null): string {
   if (current === null || previous === null) return NOT_AVAILABLE;
@@ -15,21 +12,21 @@ export function trendLabel(current: number | null, previous: number | null): str
   return "→";
 }
 
-export function isAhead(movedToQA: number, created: number): boolean | null {
-  if (movedToQA === 0 && created === 0) return null;
-  if (created === 0) return true;
-  return movedToQA / created >= ROADMAP_AHEAD_RATIO;
+export function percent(part: number | null, whole: number | null): number | null {
+  if (part === null || !whole) return null;
+  return Math.round((100 * part) / whole);
 }
 
-export function progressIndicator(movedToQA: number, created: number): string {
-  const ahead = isAhead(movedToQA, created);
-  if (ahead === null) return NOT_AVAILABLE;
-  return ahead ? "✅" : "⚠️";
-}
-
-export function formatRatio(movedToQA: number, created: number): string {
-  if (created === 0) return movedToQA > 0 ? "∞" : NOT_AVAILABLE;
-  return `${(movedToQA / created).toFixed(2)}×`;
+// "12% failed · prev 1 / 30" for the QA failed / tested tile.
+export function failureDetail(
+  failed: number | null,
+  tested: number | null,
+  failedPrev: number | null,
+  testedPrev: number | null,
+): string {
+  const share = percent(failed, tested);
+  const shareText = share === null ? NOT_AVAILABLE : `${share}% failed`;
+  return `${shareText} · prev ${failedPrev ?? NOT_AVAILABLE} / ${testedPrev ?? NOT_AVAILABLE}`;
 }
 
 export function sumKnown(values: Array<number | null>): number | null {

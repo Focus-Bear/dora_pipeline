@@ -1,16 +1,16 @@
 name: TEST - Cliq Daily Update
 
-# Manually post the DORA daily update to Zoho Cliq #scrum without running the
-# full ~45m pipeline. Fetches PRs-merged / issues-QA-closed per repo for the
-# chosen window and posts via the Cliq bot webhook.
+# Manually post the dev report (dev velocity, quality, QA backlog) to Zoho Cliq
+# #scrum without running the full ~45m pipeline. Compares the chosen window
+# with the window before it and posts via the Cliq bot webhook.
 
 on:
   workflow_dispatch:
     inputs:
       days:
-        description: "Lookback window in days"
+        description: "Lookback window in days (compared with the window before it)"
         required: false
-        default: "1"
+        default: "7"
       dry_run:
         description: "Build + log the message without posting"
         type: boolean

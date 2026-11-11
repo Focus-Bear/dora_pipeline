@@ -74,8 +74,7 @@ class CountTests(unittest.TestCase):
             item("In Progress"),
         ]
 
-    def test_counts_now_and_in_the_past(self):
-        self.assertEqual(q.count_in_statuses_now(self.items, READY), 2)
+    def test_counts_in_the_past(self):
         self.assertEqual(q.count_in_statuses_at(self.items, READY, hours_ago(24)), 3)
         self.assertEqual(q.count_in_statuses_at(self.items, READY, hours_ago(48)), 2)
 
@@ -103,6 +102,71 @@ class CountTests(unittest.TestCase):
     def test_empty_status_group_never_matches(self):
         self.assertEqual(q.count_moved_into(self.items, [], hours_ago(24)), 0)
 
+    def test_window_end_excludes_later_moves(self):
+        # The previous window: 48 h ago to 24 h ago.
+        self.assertEqual(q.count_moved_into(self.items, READY, hours_ago(48), until=hours_ago(24)), 1)
+        self.assertEqual(q.count_moved_into(self.items, PASSED, hours_ago(48), until=hours_ago(24)), 0)
+
+    def test_window_end_applies_to_the_fallback(self):
+        unrecorded = item("QA Passed/Done", events=[], updated_hours_ago=2, status_hours_ago=2)
+        self.assertFalse(q.moved_into(unrecorded, PASSED, hours_ago(24), until=hours_ago(12)))
+
+
+IN_QA = ["Ready for QA", "QA in Progress"]
+FAILED = ["QA Failed"]
+
+
+class TestedTests(unittest.TestCase):
+    def test_counts_each_qa_result_once(self):
+        items = [
+            item("QA Passed/Done", [change(5, "Ready for QA", "QA Passed/Done")]),
+            item("QA Failed", [change(3, "QA in Progress", "QA Failed")]),
+            # Failed then passed in the same window: one issue tested.
+            item("QA Passed/Done", [change(20, "QA in Progress", "QA Failed"), change(4, "QA in Progress", "QA Passed/Done")]),
+        ]
+        self.assertEqual(q.count_tested(items, PASSED, FAILED, IN_QA, hours_ago(24)), 3)
+
+    def test_ignores_moves_that_are_not_qa_results(self):
+        items = [
+            # Filed straight into QA Failed.
+            item("QA Failed", [change(3, None, "QA Failed")]),
+            # Bulk clean-up with no recorded history.
+            item("QA Passed/Done", events=[], updated_hours_ago=2, status_hours_ago=2),
+            item("QA Passed/Done", [change(3, "Backlog", "QA Passed/Done")]),
+        ]
+        self.assertEqual(q.count_tested(items, PASSED, FAILED, IN_QA, hours_ago(24)), 0)
+
+    def test_failure_after_a_pass_counts(self):
+        regressed = item("QA Failed", [change(3, "QA Passed/Done", "QA Failed")])
+        self.assertEqual(q.count_tested([regressed], PASSED, FAILED, IN_QA, hours_ago(24)), 1)
+
+
+class BacklogTests(unittest.TestCase):
+    def setUp(self):
+        def waiting(number, days, status="Ready for QA"):
+            entry = item(status, status_hours_ago=24 * days)
+            entry.update({"number": number, "title": f"Issue {number}", "url": f"https://x/{number}", "repository": "Focus-Bear/Mac-App"})
+            return entry
+
+        self.items = [waiting(1, 3), waiting(2, 40), waiting(3, 10), waiting(4, 99, status="In Progress")]
+
+    def test_lists_ready_issues_oldest_first(self):
+        backlog = q.qa_backlog(self.items, READY, NOW)
+        self.assertEqual([entry.number for entry in backlog], [2, 3, 1])
+        self.assertEqual(backlog[0].age_days, 40)
+        self.assertEqual(backlog[0].url, "https://x/2")
+
+    def test_falls_back_to_board_join_time(self):
+        joined = item("Ready for QA", created_hours_ago=24 * 5)
+        self.assertEqual(q.qa_backlog([joined], READY, NOW)[0].age_days, 5)
+
+    def test_median_and_oldest(self):
+        backlog = q.qa_backlog(self.items, READY, NOW)
+        self.assertEqual(q.median_age_days(backlog), 10)
+        self.assertEqual(q.oldest_age_days(backlog), 40)
+        self.assertIsNone(q.median_age_days([]))
+        self.assertIsNone(q.oldest_age_days([]))
+
 
 class TrendTests(unittest.TestCase):
     def test_trend_label(self):
@@ -111,24 +175,6 @@ class TrendTests(unittest.TestCase):
         self.assertEqual(q.trend_label(5, 5), "→")
         self.assertEqual(q.trend_label(None, 5), q.NOT_AVAILABLE)
         self.assertEqual(q.trend_label(5, None), q.NOT_AVAILABLE)
-
-
-class RoadmapTests(unittest.TestCase):
-    def test_ratio(self):
-        self.assertAlmostEqual(q.progress_ratio(3, 4), 0.75)
-        self.assertIsNone(q.progress_ratio(3, 0))
-
-    def test_indicator(self):
-        self.assertEqual(q.progress_indicator(5, 4), q.INDICATOR_AHEAD)
-        self.assertEqual(q.progress_indicator(4, 4), q.INDICATOR_AHEAD)
-        self.assertEqual(q.progress_indicator(3, 4), q.INDICATOR_BEHIND)
-        self.assertEqual(q.progress_indicator(2, 0), q.INDICATOR_AHEAD)
-        self.assertEqual(q.progress_indicator(0, 0), q.NOT_AVAILABLE)
-
-    def test_format_ratio(self):
-        self.assertEqual(q.format_ratio(1, 2), "0.50×")
-        self.assertEqual(q.format_ratio(2, 0), "∞")
-        self.assertEqual(q.format_ratio(0, 0), q.NOT_AVAILABLE)
 
 
 class DaysSinceTests(unittest.TestCase):
@@ -146,6 +192,11 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(q.parse_iso("2026-10-21T15:28:29Z"), datetime(2026, 10, 21, 15, 28, 29, tzinfo=UTC))
         self.assertIsNone(q.parse_iso(""))
         self.assertIsNone(q.parse_iso("not a date"))
+
+    def test_percent(self):
+        self.assertEqual(q.percent(1, 3), 33)
+        self.assertIsNone(q.percent(1, 0))
+        self.assertIsNone(q.percent(None, 3))
 
     def test_sum_optional(self):
         self.assertEqual(q.sum_optional([1, None, 2]), 3)
