@@ -11,6 +11,7 @@ dict with at least:
     status_updated_at  datetime the current Status value was set (or None)
     item_created_at    datetime the issue was added to the board (or None)
     item_updated_at    datetime any field on the board item last changed (or None)
+    issue_created_at   datetime the issue itself was filed (or None)
     events             list of StatusChange, oldest first, for changes made
                        since the event-history cutoff; None when the history
                        was not fetched (the item has not changed since then)
@@ -180,6 +181,32 @@ def count_tested(
         for item in items
         if moved_into(item, passed, since, in_qa, until) or moved_into(item, failed, since, failed_from, until)
     )
+
+
+def first_status(item: Dict[str, Any]) -> Optional[str]:
+    """The Status the item was given when it joined the board (its current one when it never changed)."""
+    events = item.get("events") or []
+    if events:
+        return events[0].previous or events[0].current
+    return item.get("status")
+
+
+def filed_into(item: Dict[str, Any], statuses: Sequence[str], since: datetime, until: Optional[datetime] = None) -> bool:
+    """
+    Whether the issue was created in the window and went straight into one of
+    `statuses` — e.g. a bug QA found and filed directly into QA Failed. Such an
+    issue is a QA result, not new work reported by users or the team.
+    """
+    created = item.get("issue_created_at")
+    if created is None or not _in_window(created, since, until):
+        return False
+    return first_status(item) in set(statuses)
+
+
+def count_filed_into(
+    items: Iterable[Dict[str, Any]], statuses: Sequence[str], since: datetime, until: Optional[datetime] = None
+) -> int:
+    return sum(1 for item in items if filed_into(item, statuses, since, until))
 
 
 def waiting_since(item: Dict[str, Any]) -> Optional[datetime]:

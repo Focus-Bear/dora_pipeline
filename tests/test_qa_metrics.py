@@ -141,6 +141,47 @@ class TestedTests(unittest.TestCase):
         self.assertEqual(q.count_tested([regressed], PASSED, FAILED, IN_QA, hours_ago(24)), 1)
 
 
+def filed(status, events, issue_hours_ago):
+    """A board item for an issue filed `issue_hours_ago` hours ago."""
+    entry = item(status, events, created_hours_ago=issue_hours_ago)
+    entry["issue_created_at"] = hours_ago(issue_hours_ago)
+    return entry
+
+
+class FiledIntoTests(unittest.TestCase):
+    def test_bug_filed_straight_into_qa_failed(self):
+        found = filed("QA Failed", [change(3, None, "QA Failed")], issue_hours_ago=3)
+        self.assertTrue(q.filed_into(found, FAILED, hours_ago(24)))
+
+    def test_still_counts_after_a_developer_picks_it_up(self):
+        picked_up = filed("In Progress", [change(20, None, "QA Failed"), change(2, "QA Failed", "In Progress")], issue_hours_ago=20)
+        self.assertTrue(q.filed_into(picked_up, FAILED, hours_ago(24)))
+
+    def test_issue_filed_elsewhere_and_failed_later_is_not_filed_into(self):
+        # Filed into the backlog, then failed a re-test: a QA failure, not a bug QA found.
+        retested = filed("QA Failed", [change(20, None, "Todo"), change(2, "Ready for QA", "QA Failed")], issue_hours_ago=20)
+        self.assertFalse(q.filed_into(retested, FAILED, hours_ago(24)))
+
+    def test_status_set_without_recorded_history_uses_current_status(self):
+        unrecorded = filed("QA Failed", [], issue_hours_ago=5)
+        self.assertTrue(q.filed_into(unrecorded, FAILED, hours_ago(24)))
+
+    def test_window_boundaries(self):
+        found_25h_ago = filed("QA Failed", [change(25, None, "QA Failed")], issue_hours_ago=25)
+        found_exactly_24h_ago = filed("QA Failed", [change(24, None, "QA Failed")], issue_hours_ago=24)
+        items = [found_25h_ago, found_exactly_24h_ago]
+        # Windows are (since, until]: an issue filed exactly at the start belongs to the window before.
+        self.assertEqual(q.count_filed_into(items, FAILED, hours_ago(24)), 0)
+        self.assertEqual(q.count_filed_into(items, FAILED, hours_ago(24 * 7)), 2)
+        self.assertEqual(q.count_filed_into(items, FAILED, hours_ago(48), until=hours_ago(24)), 2)
+
+    def test_unknown_creation_time_never_counts(self):
+        self.assertFalse(q.filed_into(item("QA Failed", [change(3, None, "QA Failed")]), FAILED, hours_ago(24)))
+
+    def test_empty_status_group_never_matches(self):
+        self.assertFalse(q.filed_into(filed("QA Failed", [], issue_hours_ago=3), [], hours_ago(24)))
+
+
 class BacklogTests(unittest.TestCase):
     def setUp(self):
         def waiting(number, days, status="Ready for QA"):
