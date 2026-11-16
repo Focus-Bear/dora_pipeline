@@ -136,21 +136,30 @@ bash scripts/upload-to-r2.sh
 
 ## Dev report and repo summary metrics (`cliq_notify.py`, `repo_summary.py`)
 
-The daily Zoho Cliq #scrum post is the dev report. It covers the **last 7 days**,
-and every figure is shown next to the **7 days before** ("prev"). The same
-figures, for 7 or 30 days, are written to `repo_summary_7d.csv` /
-`repo_summary_30d.csv` for the dashboard's "Overall Velocity Report" page.
-Per repo, plus totals:
+The daily Zoho Cliq #scrum post is the dev report. Every figure is shown as
+**last 24 hours / last 7 days**, and the post opens with a one-line key that
+explains each figure. The dashboard's "Overall Velocity Report" page shows the
+7- or 30-day figures (with the window before as "prev") from
+`repo_summary_7d.csv` / `repo_summary_30d.csv`. Per repo, plus totals:
 
 | Section | Figure | Source |
 |---------|--------|--------|
 | 1. Dev velocity | PRs merged | GitHub search `is:pr is:merged merged:<window>`, per repo |
-| | PRs open now (draft / approved split) | GitHub search `is:pr is:open`, per repo |
-| 2. Quality | New issues (and how many are labelled `bug`) | GitHub search `is:issue created:<window>`, per repo |
-| | QA failed of QA tested | The repo's board: issues whose Status moved into its QA Failed column (failed) or its QA Failed / passed column (tested) in the window |
-| 3. QA backlog | Issues in Ready for QA now, and 7 days ago | The repo's board: current Status; the 7-days-ago count is rebuilt from the status-change history |
+| | To QA: issues moved into Ready for QA | The repo's board status-change history |
+| | PRs open now (draft / approved split on the dashboard) | GitHub search `is:pr is:open`, per repo |
+| 2. QA velocity | Tested, passed, failed | The repo's board: issues whose Status moved out of a QA column into its passed / QA Failed column in the window |
+| 3. New issues vs QA failed | New issues | GitHub search `is:issue created:<window>`, per repo, **less** the bugs found by QA |
+| | QA failed | Fixes that failed re-test (as in QA velocity) **plus** bugs found by QA: issues filed in the window straight into the board's QA Failed column |
+| 4. QA backlog | Issues in Ready for QA now, vs 24 h and 7 days ago | The repo's board: current Status; past counts are rebuilt from the status-change history |
 | | How long each has waited, median, oldest | Time since the board item's Status value was last set |
 | Appendix | Days since last release | Per platform, see below |
+
+**Why bugs found by QA are not "new issues".** QA files most of the bugs it
+finds straight into the board's QA Failed column (on the web dashboard board
+that was 59 of the 60 issues filed in the week to 16 Nov 2026). Counted as new
+issues they made "new issues" look like a flood of incoming reports, so they
+are counted under QA failed instead. `issues_created` in the CSVs still counts
+every issue filed; `issues_new` and `issues_found_by_qa` hold the split.
 
 All search counts for a repo come from one batched GraphQL query; board data
 comes from Projects v2 (`ProjectV2ItemStatusChangedEvent` timeline events).
@@ -160,9 +169,9 @@ repo, so QA results come from board Status only. A move counts only when it
 comes out of the board's QA stage: its Ready for QA column or a column QA works
 in, such as QA in Progress or For Dev QA (a failure may also come out of the
 passed column). Each repo lists these columns in `REPOS`
-(`qa.ready` / `qa.testing` / `qa.passed` / `qa.failed`). This leaves out issues
-filed straight into QA Failed and bulk board clean-ups, which GitHub records
-with no status history. Linux has no QA Failed column, and the browser
+(`qa.ready` / `qa.testing` / `qa.passed` / `qa.failed`). This leaves out bulk
+board clean-ups, which GitHub records with no status history, and issues filed
+straight into QA Failed, which are reported separately as bugs found by QA. Linux has no QA Failed column, and the browser
 extension board has no QA columns, so their failure figures show as `–`.
 
 The backlog is per board, so an issue from another repo filed on a repo's board
@@ -180,8 +189,8 @@ GH_API_READ_TOKEN=$(gh auth token) python cliq_notify.py --dry-run --backlog-csv
 ```
 
 It prints the Cliq message and writes `qa_backlog.csv`: every issue waiting in
-Ready for QA on every board, oldest first, with its link. `--days N` reports a
-different window, compared with the N days before it. It takes about 3 minutes.
+Ready for QA on every board, oldest first, with its link. `--days N` replaces
+the 7-day window with an N-day one; the last 24 hours are always shown. It takes about 3 minutes.
 
 Release signal per repo (`release_velocity.py`; falls back to GitHub Releases, then tags):
 

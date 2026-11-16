@@ -63,6 +63,20 @@ class StatusChangeParsingTests(unittest.TestCase):
         self.assertIsNone(changes[0].previous)
 
 
+class BoardItemTests(unittest.TestCase):
+    def test_keeps_when_the_issue_was_filed(self):
+        node = {
+            "createdAt": "2026-10-21T10:00:00Z",
+            "updatedAt": "2026-10-21T11:00:00Z",
+            "content": {"__typename": "Issue", "id": "I_9", "number": 9, "title": "t", "url": "u",
+                        "createdAt": "2026-10-20T09:00:00Z", "repository": {"nameWithOwner": "Focus-Bear/Mac-App"}},
+            "fieldValueByName": {"name": "QA Failed", "updatedAt": "2026-10-21T10:00:00Z"},
+        }
+        board_entry = rs._board_item(node)
+        self.assertEqual(board_entry["issue_created_at"], datetime(2026, 10, 20, 9, 0, tzinfo=UTC))
+        self.assertEqual(board_entry["item_created_at"], datetime(2026, 10, 21, 10, 0, tzinfo=UTC))
+
+
 class ReportRowTests(unittest.TestCase):
     def setUp(self):
         passed = board_item(
@@ -84,15 +98,53 @@ class ReportRowTests(unittest.TestCase):
         )
         self.inputs = rs.SummaryInputs(
             fetched_at=NOW,
-            items_by_repo={"Mac-App": [passed, waiting, failed_last_week], "chrome_extension": []},
+            items_by_repo={
+                "Mac-App": [passed, waiting, failed_last_week] + self.bugs_found_by_qa(),
+                "chrome_extension": [],
+            },
             counts_by_repo={
                 "Mac-App": {"prs_open": 15, "prs_draft": 2, "prs_approved": 1, "prs_merged_7d": 22,
                             "prs_merged_prev_7d": 18, "issues_created_7d": 27, "issues_created_prev_7d": 30,
-                            "bugs_created_7d": 19},
+                            "bugs_created_7d": 19, "prs_merged_1d": 4, "issues_created_1d": 4,
+                            "issues_created_prev_1d": 1},
                 "chrome_extension": {"prs_open": 3},
             },
             releases_by_repo={"Mac-App": Release(NOW - timedelta(days=49, hours=2), "3.35.535", "Sparkle appcast")},
         )
+
+    @staticmethod
+    def bugs_found_by_qa():
+        """Bugs QA filed straight into QA Failed: 5 hours ago, 3 days ago, and one in another repo on this board."""
+        def found(number, hours, repository="Focus-Bear/Mac-App"):
+            at = NOW - timedelta(hours=hours)
+            entry = board_item("QA Failed", [StatusChange(at, None, "QA Failed")], at, number=number)
+            entry.update({"issue_created_at": at, "item_created_at": at, "repository": repository})
+            return entry
+
+        return [found(4, 5), found(5, 72), found(6, 5, repository="Focus-Bear/backend")]
+
+    def test_new_issues_exclude_bugs_found_by_qa(self):
+        week = rs.build_repo_row(MAC, 7, self.inputs)
+        self.assertEqual(week["issues_created"], 27)
+        self.assertEqual(week["issues_found_by_qa"], 2)
+        self.assertEqual(week["issues_new"], 25)
+        self.assertEqual(week["issues_found_by_qa_prev"], 0)
+        self.assertEqual(week["issues_new_prev"], 30)
+        # Bugs QA found are not QA re-test failures, so they stay out of "failed of tested".
+        self.assertEqual(week["issues_qa_failed"], 0)
+
+    def test_last_24_hours(self):
+        day = rs.build_repo_row(MAC, 1, self.inputs)
+        self.assertEqual(day["prs_merged"], 4)
+        self.assertEqual(day["issues_found_by_qa"], 1)
+        self.assertEqual(day["issues_new"], 3)
+        self.assertEqual(day["issues_qa_completed"], 1)
+        self.assertEqual(day["issues_qa_tested"], 1)
+        self.assertEqual(day["issues_moved_to_ready_for_qa"], 0)
+
+    def test_new_issues_never_negative(self):
+        self.inputs.counts_by_repo["Mac-App"]["issues_created_1d"] = 0
+        self.assertEqual(rs.build_repo_row(MAC, 1, self.inputs)["issues_new"], 0)
 
     def test_qa_board_repo(self):
         row = rs.build_repo_row(MAC, 7, self.inputs)
@@ -118,6 +170,8 @@ class ReportRowTests(unittest.TestCase):
         self.assertIsNone(row["issues_ready_for_qa"])
         self.assertIsNone(row["issues_qa_completed"])
         self.assertIsNone(row["issues_qa_tested"])
+        self.assertIsNone(row["issues_found_by_qa"])
+        self.assertEqual(row["issues_new"], 0)
         self.assertEqual(row["qa_backlog"], [])
         self.assertIsNone(row["days_since_last_release"])
         self.assertEqual(row["prs_open"], 3)

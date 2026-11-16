@@ -1,14 +1,15 @@
 name: TEST - Cliq Daily Update
 
-# Manually post the dev report (dev velocity, quality, QA backlog) to Zoho Cliq
-# #scrum without running the full ~45m pipeline. Compares the chosen window
-# with the window before it and posts via the Cliq bot webhook.
+# Manually post the dev report (dev velocity, QA velocity, new issues vs QA
+# failed, QA backlog) to Zoho Cliq #scrum without running the full ~45m
+# pipeline. Shows the last 24 hours next to the chosen window and posts via the
+# Cliq bot webhook.
 
 on:
   workflow_dispatch:
     inputs:
       days:
-        description: "Lookback window in days (compared with the window before it)"
+        description: "Longer window in days (shown next to the last 24 hours)"
         required: false
         default: "7"
       dry_run:

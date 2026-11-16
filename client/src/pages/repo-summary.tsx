@@ -29,9 +29,10 @@ interface RepoMetrics {
   prsApproved: number;
   prsMerged: number;
   prsMergedPrev: number;
-  issuesCreated: number;
-  issuesCreatedPrev: number;
-  bugsCreated: number;
+  // New issues exclude bugs QA filed straight into QA Failed, which are counted as found by QA.
+  issuesNew: number;
+  issuesNewPrev: number;
+  issuesFoundByQA: number | null;
   // QA figures are null for repos whose board has no QA columns; the failed
   // counts are also null for boards without a QA Failed column.
   issuesQAFailed: number | null;
@@ -80,9 +81,10 @@ function parseCSV(csvText: string): RepoMetrics[] {
       prsApproved: parseInteger(row["prs_approved"]),
       prsMerged: parseInteger(row["prs_merged"]),
       prsMergedPrev: parseInteger(row["prs_merged_prev"]),
-      issuesCreated: parseInteger(row["issues_created"]),
-      issuesCreatedPrev: parseInteger(row["issues_created_prev"]),
-      bugsCreated: parseInteger(row["bugs_created"]),
+      // CSVs written before issues_new existed only have issues_created.
+      issuesNew: parseOptionalInt(row["issues_new"]) ?? parseInteger(row["issues_created"]),
+      issuesNewPrev: parseOptionalInt(row["issues_new_prev"]) ?? parseInteger(row["issues_created_prev"]),
+      issuesFoundByQA: parseOptionalInt(row["issues_found_by_qa"]),
       issuesQAFailed: parseOptionalInt(row["issues_qa_failed"]),
       issuesQAFailedPrev: parseOptionalInt(row["issues_qa_failed_prev"]),
       issuesQATested: parseOptionalInt(row["issues_qa_tested"]),
@@ -111,10 +113,6 @@ function previousDetail(previous: number): string {
 
 function backlogTrend(current: number | null, weekAgo: number | null): string {
   return `${trendLabel(current, weekAgo)} vs 7 days ago`;
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function MetricCard({
@@ -154,9 +152,10 @@ interface SectionFigures {
   prsApproved: number;
   prsMerged: number;
   prsMergedPrev: number;
-  issuesCreated: number;
-  issuesCreatedPrev: number;
-  bugsCreated: number;
+  // New issues exclude bugs QA filed straight into QA Failed, which are counted as found by QA.
+  issuesNew: number;
+  issuesNewPrev: number;
+  issuesFoundByQA: number | null;
   issuesQAFailed: number | null;
   issuesQAFailedPrev: number | null;
   issuesQATested: number | null;
@@ -194,10 +193,10 @@ function QualityTiles({ figures }: { figures: SectionFigures }) {
     <>
       <MetricCard
         title="New issues"
-        value={figures.issuesCreated}
+        value={figures.issuesNew}
         icon={Bug}
         color="text-chart-1"
-        detail={`${plural(figures.bugsCreated, "bug")} · ${previousDetail(figures.issuesCreatedPrev)}`}
+        detail={`${showValue(figures.issuesFoundByQA)} more found by QA · ${previousDetail(figures.issuesNewPrev)}`}
       />
       <MetricCard
         title="QA failed / tested"
@@ -291,9 +290,9 @@ function summarise(metrics: RepoMetrics[]): SectionFigures {
     prsApproved: sum((repo) => repo.prsApproved),
     prsMerged: sum((repo) => repo.prsMerged),
     prsMergedPrev: sum((repo) => repo.prsMergedPrev),
-    issuesCreated: sum((repo) => repo.issuesCreated),
-    issuesCreatedPrev: sum((repo) => repo.issuesCreatedPrev),
-    bugsCreated: sum((repo) => repo.bugsCreated),
+    issuesNew: sum((repo) => repo.issuesNew),
+    issuesNewPrev: sum((repo) => repo.issuesNewPrev),
+    issuesFoundByQA: sumOptional((repo) => repo.issuesFoundByQA),
     issuesQAFailed: sumFailedBoards((repo) => repo.issuesQAFailed),
     issuesQAFailedPrev: sumFailedBoards((repo) => repo.issuesQAFailedPrev),
     issuesQATested: sumFailedBoards((repo) => repo.issuesQATested),
