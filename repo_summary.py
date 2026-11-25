@@ -7,7 +7,9 @@ Per repo, grouped the way the report presents them:
   1. Dev velocity: PRs merged in the window (and the window before it), PRs
      open now (split into draft / approved)
   2. Quality: new issues (and new bug-labelled issues) filed in the window,
-     and issues QA tested / failed, from the repo's GitHub Projects v2 board
+     split into bugs QA found (filed straight into the board's QA Failed
+     column) and the rest, and issues QA tested / passed / failed, from the
+     repo's GitHub Projects v2 board
   3. QA backlog: issues in the board's Ready for QA column now, how long each
      has waited, and the count 24 h and 7 days ago (for the trend)
   Appendix: days since the last release (see release_velocity.py)
@@ -133,8 +135,8 @@ REPOS: List[Dict[str, Any]] = [
 # Time periods (days) to generate dashboard CSVs for. Each is compared with
 # the same-length window just before it.
 TIME_PERIODS = [7, 30]
-# Window reported in the Cliq update.
-CLIQ_WINDOW_DAYS = 7
+# Windows reported side by side in the Cliq update: the last 24 hours and the last 7 days.
+CLIQ_WINDOWS_DAYS = (1, 7)
 # How far back the Ready for QA count is compared, in days.
 TREND_LOOKBACK_DAYS = [1, 7]
 DEFAULT_REPORT_DAYS = 30
@@ -175,6 +177,12 @@ CSV_FIELDNAMES = [
     "issues_qa_failed_prev",
     "qa_backlog_median_days",
     "qa_backlog_oldest_days",
+    # Added when new issues were split from bugs QA found (filed straight into
+    # QA Failed): issues_created still counts every issue filed.
+    "issues_found_by_qa",
+    "issues_found_by_qa_prev",
+    "issues_new",
+    "issues_new_prev",
 ]
 
 BACKLOG_CSV_FIELDNAMES = ["board", "repository", "number", "title", "status", "age_days", "waiting_since", "url"]
@@ -189,7 +197,7 @@ query($org: String!, $project: Int!, $first: Int!, $after: String, $statusField:
           updatedAt
           content {
             __typename
-            ... on Issue { id number title url updatedAt repository { nameWithOwner } }
+            ... on Issue { id number title url createdAt updatedAt repository { nameWithOwner } }
           }
           fieldValueByName(name: $statusField) {
             ... on ProjectV2ItemFieldSingleSelectValue { name updatedAt }
@@ -281,6 +289,7 @@ def _board_item(node: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "url": content.get("url"),
         "repository": (content.get("repository") or {}).get("nameWithOwner"),
         "updated_at": content.get("updatedAt"),
+        "issue_created_at": parse_iso(content.get("createdAt")),
         "status": status_value.get("name"),
         "status_updated_at": parse_iso(status_value.get("updatedAt")),
         "item_created_at": parse_iso(node.get("createdAt")),
@@ -413,11 +422,27 @@ QA_ROW_KEYS = [
     "issues_moved_to_ready_for_qa",
     "qa_backlog_median_days",
     "qa_backlog_oldest_days",
+    "issues_found_by_qa",
+    "issues_found_by_qa_prev",
 ] + [f"ready_for_qa_{lookback}d_ago" for lookback in TREND_LOOKBACK_DAYS]
 
 
 def in_qa_statuses(qa: Dict[str, Any]) -> List[str]:
     return qa["ready"] + qa["testing"]
+
+
+def _is_repo_issue(item: Dict[str, Any], repo_name: str) -> bool:
+    # A board can hold other repos' issues; the new-issue search count is per repo.
+    return (item.get("repository") or "").lower() == repo_name.lower()
+
+
+def _found_by_qa_count(
+    items: List[Dict[str, Any]], qa: Dict[str, Any], repo_name: str, since: datetime, until: datetime
+) -> Optional[int]:
+    if not qa["failed"]:
+        return None
+    repo_items = [item for item in items if _is_repo_issue(item, repo_name)]
+    return qa_metrics.count_filed_into(repo_items, qa["failed"], since, until)
 
 
 def _failed_count(items: List[Dict[str, Any]], qa: Dict[str, Any], since: datetime, until: datetime) -> Optional[int]:
@@ -430,7 +455,9 @@ def _tested_count(items: List[Dict[str, Any]], qa: Dict[str, Any], since: dateti
     return qa_metrics.count_tested(items, qa["passed"], qa["failed"], in_qa_statuses(qa), since, until)
 
 
-def qa_row(items: List[Dict[str, Any]], qa: Optional[Dict[str, Any]], days: int, now: datetime) -> Dict[str, Any]:
+def qa_row(
+    items: List[Dict[str, Any]], qa: Optional[Dict[str, Any]], days: int, now: datetime, repo_name: str
+) -> Dict[str, Any]:
     if not qa:
         empty: Dict[str, Any] = {key: None for key in QA_ROW_KEYS}
         empty["qa_backlog"] = []
@@ -446,6 +473,8 @@ def qa_row(items: List[Dict[str, Any]], qa: Optional[Dict[str, Any]], days: int,
         "issues_qa_tested": _tested_count(items, qa, since, now),
         "issues_qa_tested_prev": _tested_count(items, qa, previous_since, since),
         "issues_moved_to_ready_for_qa": qa_metrics.count_moved_into(items, qa["ready"], since, until=now),
+        "issues_found_by_qa": _found_by_qa_count(items, qa, repo_name, since, now),
+        "issues_found_by_qa_prev": _found_by_qa_count(items, qa, repo_name, previous_since, since),
         "qa_backlog_median_days": qa_metrics.median_age_days(backlog),
         "qa_backlog_oldest_days": qa_metrics.oldest_age_days(backlog),
         "qa_backlog": backlog,
@@ -466,6 +495,11 @@ def release_row(release: Optional[Release], now: datetime) -> Dict[str, Any]:
     }
 
 
+def _new_issue_count(created: int, found_by_qa: Optional[int]) -> int:
+    """Issues filed in the window, less the bugs QA filed straight into QA Failed."""
+    return max(0, created - (found_by_qa or 0))
+
+
 def build_repo_row(repo: Dict[str, Any], days: int, inputs: SummaryInputs) -> Dict[str, Any]:
     short_name = repo["short_name"]
     counts = inputs.counts_by_repo.get(short_name, {})
@@ -483,7 +517,9 @@ def build_repo_row(repo: Dict[str, Any], days: int, inputs: SummaryInputs) -> Di
         "issues_created_prev": counts.get(f"issues_created_prev_{days}d", 0),
         "bugs_created": counts.get(f"bugs_created_{days}d", 0),
     }
-    row.update(qa_row(inputs.items_by_repo.get(short_name, []), repo.get("qa"), days, inputs.fetched_at))
+    row.update(qa_row(inputs.items_by_repo.get(short_name, []), repo.get("qa"), days, inputs.fetched_at, repo["name"]))
+    row["issues_new"] = _new_issue_count(row["issues_created"], row["issues_found_by_qa"])
+    row["issues_new_prev"] = _new_issue_count(row["issues_created_prev"], row["issues_found_by_qa_prev"])
     row.update(release_row(inputs.releases_by_repo.get(short_name), inputs.fetched_at))
     if short_name in inputs.errors_by_repo:
         row["error"] = inputs.errors_by_repo[short_name]
@@ -494,11 +530,11 @@ def generate_report(lookback_days: int, inputs: SummaryInputs) -> List[Dict[str,
     rows = [build_repo_row(repo, lookback_days, inputs) for repo in REPOS]
     for row in rows:
         log.info(
-            "  %s (%dd): PRs merged=%s (prev %s), open=%s; new issues=%s (prev %s, bugs %s), "
+            "  %s (%dd): PRs merged=%s (prev %s), open=%s; new issues=%s (prev %s; %s filed, %s by QA), "
             "QA failed=%s of %s tested; ready for QA=%s (7d ago %s, oldest %sd); days since release=%s",
             row["display_name"], lookback_days, row["prs_merged"], row["prs_merged_prev"], row["prs_open"],
-            row["issues_created"], row["issues_created_prev"], row["bugs_created"], row["issues_qa_failed"],
-            row["issues_qa_tested"], row["issues_ready_for_qa"], row["ready_for_qa_7d_ago"],
+            row["issues_new"], row["issues_new_prev"], row["issues_created"], row["issues_found_by_qa"],
+            row["issues_qa_failed"], row["issues_qa_tested"], row["issues_ready_for_qa"], row["ready_for_qa_7d_ago"],
             row["qa_backlog_oldest_days"], row["days_since_last_release"],
         )
     return rows
@@ -543,11 +579,13 @@ def write_backlog_csv(results: List[Dict[str, Any]], output_file: str) -> None:
 
 def log_totals(days: int, results: List[Dict[str, Any]]) -> None:
     log.info(
-        "Totals (%dd): PRs merged=%s, open=%s; new issues=%s, QA failed=%s of %s tested; ready for QA=%s",
+        "Totals (%dd): PRs merged=%s, open=%s; new issues=%s, found by QA=%s, QA failed=%s of %s tested; "
+        "ready for QA=%s",
         days,
         sum(row["prs_merged"] for row in results),
         sum(row["prs_open"] for row in results),
-        sum(row["issues_created"] for row in results),
+        sum(row["issues_new"] for row in results),
+        qa_metrics.sum_optional(row["issues_found_by_qa"] for row in results),
         qa_metrics.sum_optional(row["issues_qa_failed"] for row in results),
         qa_metrics.sum_optional(row["issues_qa_tested"] for row in results),
         qa_metrics.sum_optional(row["issues_ready_for_qa"] for row in results),
@@ -562,7 +600,7 @@ def main() -> None:
     if not GH_TOKEN:
         log.warning("GH_API_READ_TOKEN not set. API rate limits will be very low.")
 
-    windows = sorted(set(TIME_PERIODS + [CLIQ_WINDOW_DAYS]))
+    windows = sorted(set(TIME_PERIODS) | set(CLIQ_WINDOWS_DAYS))
     inputs = collect_inputs(windows)
 
     reports: Dict[int, List[Dict[str, Any]]] = {}
@@ -581,7 +619,7 @@ def main() -> None:
         from cliq_notify import send_daily_update
 
         log.info("Sending daily update to Zoho Cliq...")
-        send_daily_update(inputs=inputs, days=CLIQ_WINDOW_DAYS, precomputed=reports[CLIQ_WINDOW_DAYS])
+        send_daily_update(inputs=inputs, precomputed={days: reports[days] for days in CLIQ_WINDOWS_DAYS})
     except Exception as err:
         log.error("Failed to send Cliq daily update: %s", err)
 

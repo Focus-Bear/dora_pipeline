@@ -3,15 +3,19 @@
 Build the Focus Bear dev report and send it to Zoho Cliq (#scrum channel).
 
 This is the one script that produces the report; the numbers come from
-repo_summary.py. For the last N days (default 7), compared with the N days
-before ("prev"), it reports per repo plus totals:
+repo_summary.py. Every figure is shown as "last 24 hours / last N days"
+(default 7), per repo plus totals:
 
-  1. Dev velocity — PRs merged, PRs open now
-  2. Quality      — new issues filed (and how many are labelled bug), and how
-                    many issues QA failed out of those QA tested
-  3. QA backlog   — issues in each board's Ready for QA column now, the change
-                    vs 7 days ago, the median wait and the oldest issues
-  Appendix        — days since each repo's last release
+  1. Dev velocity    — PRs merged, issues moved to Ready for QA, PRs open now
+  2. QA velocity     — fixes QA finished re-testing, split into passed / failed
+  3. New issues vs QA failed
+                     — new issues (not counting bugs QA found) next to QA
+                       failed (fixes that failed re-test + bugs QA filed
+                       straight into QA Failed)
+  4. QA backlog      — issues in each board's Ready for QA column now, the
+                       change vs 24 h and 7 days ago, the median wait and the
+                       oldest issues
+  Appendix           — days since each repo's last release
 
 Posts via a Zoho Cliq bot incoming webhook whose Deluge handler forwards the
 JSON body to the target channel, e.g.:
@@ -30,7 +34,7 @@ Configuration (env vars):
 CLI:
   python cliq_notify.py                              # fetch real data, build + send
   python cliq_notify.py --dry-run                    # build + print, do not send
-  python cliq_notify.py --days 14                    # a different window length
+  python cliq_notify.py --days 14                    # a different longer window (24 h is always shown)
   python cliq_notify.py --dry-run --backlog-csv qa_backlog.csv
                                                      # also write the full QA backlog, oldest first
 """
@@ -41,12 +45,13 @@ import os
 import sys
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import requests
 
-from qa_metrics import NOT_AVAILABLE, BacklogEntry, percent, sum_optional, trend_label
+from qa_metrics import NOT_AVAILABLE, BacklogEntry, sum_optional, trend_label
 
 if TYPE_CHECKING:
     from repo_summary import SummaryInputs
@@ -63,13 +68,19 @@ CLIQ_WEBHOOK_URL = os.getenv("CLIQ_WEBHOOK_URL") or ""
 # Link to the DORA dashboard, appended to the message footer.
 DORA_DASHBOARD_URL = os.getenv("DORA_DASHBOARD_URL", "https://dora-pipeline.pages.dev")
 
+# Every figure is shown for the last day next to the longer window.
+DAY_WINDOW_DAYS = 1
 DEFAULT_WINDOW_DAYS = 7
 # How many of each board's longest-waiting Ready for QA issues are named.
 BACKLOG_OLDEST_SHOWN = 3
-# The Ready for QA count is compared with this many days ago (a repo_summary trend column).
-BACKLOG_TREND_DAYS = 7
+# The Ready for QA count is compared with these many days ago (repo_summary trend columns).
+BACKLOG_TRENDS = ((1, "24h ago"), (7, "7d ago"))
+BACKLOG_KEYS = ["issues_ready_for_qa"] + ["ready_for_qa_{}d_ago".format(days) for days, _ in BACKLOG_TRENDS]
+QA_FAILED_KEYS = ["issues_qa_failed", "issues_found_by_qa"]
+TOTAL_KEY = "total"
 
 INLINE_SEPARATOR = " · "
+WINDOW_SEPARATOR = " / "
 
 log = logging.getLogger("cliq_notify")
 
@@ -103,87 +114,148 @@ def _show(value: Optional[int]) -> str:
     return NOT_AVAILABLE if value is None else str(value)
 
 
-def _plural(count: int, noun: str) -> str:
-    return "{} {}{}".format(count, noun, "" if count == 1 else "s")
+@dataclass(frozen=True)
+class RepoWindows:
+    """One repo's report rows for the last 24 hours and for the longer window."""
+
+    day: Row
+    window: Row
+
+    @property
+    def name(self) -> str:
+        return _name(self.window)
 
 
-def _total(rows: List[Row], key: str) -> int:
-    return sum(_int(row, key) for row in rows)
+def pair_rows(day_rows: List[Row], window_rows: List[Row]) -> List[RepoWindows]:
+    """Match each repo's 24-hour row to its longer-window row, keeping the longer window's repo order."""
+    day_by_repo = {row.get("repo_name"): row for row in day_rows}
+    return [RepoWindows(day_by_repo.get(row.get("repo_name"), {}), row) for row in window_rows]
 
 
-def _total_optional(rows: List[Row], key: str) -> Optional[int]:
-    return sum_optional(_optional(row, key) for row in rows)
+def _both(repo: RepoWindows, value: Callable[[Row], Optional[int]]) -> str:
+    """A figure as "last 24 h / last N days"."""
+    return "{}{}{}".format(_show(value(repo.day)), WINDOW_SEPARATOR, _show(value(repo.window)))
 
 
-def _sorted_desc(rows: List[Row], key: Callable[[Row], int]) -> List[Row]:
-    return sorted(rows, key=key, reverse=True)
+def _key(key: str) -> Callable[[Row], Optional[int]]:
+    return lambda row: _optional(row, key)
+
+
+def _totals(repos: List[RepoWindows], value: Callable[[Row], Optional[int]]) -> RepoWindows:
+    """A pseudo-repo whose figures are the sums over `repos` (unknown when no repo knows them)."""
+    return RepoWindows(
+        {TOTAL_KEY: sum_optional(value(repo.day) for repo in repos)},
+        {TOTAL_KEY: sum_optional(value(repo.window) for repo in repos)},
+    )
+
+
+def _total_both(repos: List[RepoWindows], value: Callable[[Row], Optional[int]]) -> str:
+    return _both(_totals(repos, value), _key(TOTAL_KEY))
+
+
+def _is_active(repo: RepoWindows, values: List[Callable[[Row], Optional[int]]]) -> bool:
+    return any(value(repo.window) or value(repo.day) for value in values)
 
 
 def _has_qa_board(row: Row) -> bool:
     return _optional(row, "issues_ready_for_qa") is not None
 
 
+def _has_failed_column(row: Row) -> bool:
+    return _optional(row, "issues_qa_failed") is not None
+
+
+def _repo_line(repo: RepoWindows, parts: List[str]) -> str:
+    return "• *{}* — {}".format(repo.name, INLINE_SEPARATOR.join(parts))
+
+
 # ---------- 1. Dev velocity ----------
 
-def _velocity_repo_line(row: Row) -> str:
-    return "• *{}* — {} merged (prev {}){}{} open".format(
-        _name(row), _int(row, "prs_merged"), _int(row, "prs_merged_prev"), INLINE_SEPARATOR, _int(row, "prs_open")
+def _velocity_parts(repo: RepoWindows) -> List[str]:
+    parts = ["merged " + _both(repo, _key("prs_merged"))]
+    if _optional(repo.window, "issues_moved_to_ready_for_qa") is not None:
+        parts.append("to QA " + _both(repo, _key("issues_moved_to_ready_for_qa")))
+    return parts + ["{} open".format(_show(_optional(repo.window, "prs_open")))]
+
+
+def build_velocity_section(repos: List[RepoWindows]) -> List[str]:
+    boards = [repo for repo in repos if _has_qa_board(repo.window)]
+    header = "*1. Dev velocity* — merged {}{}to QA {}{}{} PRs open now".format(
+        _total_both(repos, _key("prs_merged")), INLINE_SEPARATOR,
+        _total_both(boards, _key("issues_moved_to_ready_for_qa")), INLINE_SEPARATOR,
+        _show(sum_optional(_optional(repo.window, "prs_open") for repo in repos)),
+    )
+    active = [repo for repo in repos if _is_active(repo, [_key("prs_merged"), _key("prs_open")])]
+    return [header] + [_repo_line(repo, _velocity_parts(repo)) for repo in active]
+
+
+# ---------- 2. QA velocity ----------
+
+def _qa_velocity_parts(repo: RepoWindows) -> List[str]:
+    parts = [
+        "tested " + _both(repo, _key("issues_qa_tested")),
+        "passed " + _both(repo, _key("issues_qa_completed")),
+    ]
+    if _has_failed_column(repo.window):
+        parts.append("failed " + _both(repo, _key("issues_qa_failed")))
+    else:
+        parts.append("no QA Failed column")
+    return parts
+
+
+def build_qa_velocity_section(repos: List[RepoWindows]) -> List[str]:
+    boards = [repo for repo in repos if _has_qa_board(repo.window)]
+    if not boards:
+        return []
+    with_failed = [repo for repo in boards if _has_failed_column(repo.window)]
+    header = "*2. QA velocity* — tested {}{}passed {}{}failed {}".format(
+        _total_both(boards, _key("issues_qa_tested")), INLINE_SEPARATOR,
+        _total_both(boards, _key("issues_qa_completed")), INLINE_SEPARATOR,
+        _total_both(with_failed, _key("issues_qa_failed")),
+    )
+    active = [repo for repo in boards if _is_active(repo, [_key("issues_qa_tested")])]
+    return [header] + [_repo_line(repo, _qa_velocity_parts(repo)) for repo in active]
+
+
+# ---------- 3. New issues vs QA failed ----------
+
+def qa_failed_count(row: Row) -> Optional[int]:
+    """Fixes that failed QA re-test plus bugs QA filed straight into QA Failed."""
+    return sum_optional([_optional(row, "issues_qa_failed"), _optional(row, "issues_found_by_qa")])
+
+
+def _new_issues(row: Row) -> Optional[int]:
+    return _optional(row, "issues_new")
+
+
+def _qa_failed_breakdown(row: Row, window_days: int) -> str:
+    """The longer window's QA failed figure split into its two sources, e.g. "(7d: 23 failed re-test, 79 found by QA)"."""
+    if not qa_failed_count(row):
+        return ""
+    return " ({}d: {} failed re-test, {} found by QA)".format(
+        window_days, _int(row, "issues_qa_failed"), _int(row, "issues_found_by_qa")
     )
 
 
-def build_velocity_section(rows: List[Row]) -> List[str]:
-    merged = _total(rows, "prs_merged")
-    merged_prev = _total(rows, "prs_merged_prev")
-    lines = ["*1. Dev velocity* — {} merged (prev {}, {}){}{} open".format(
-        _plural(merged, "PR"), merged_prev, trend_label(merged, merged_prev), INLINE_SEPARATOR, _plural(_total(rows, "prs_open"), "PR")
-    )]
-    active = [row for row in rows if _int(row, "prs_merged") or _int(row, "prs_merged_prev") or _int(row, "prs_open")]
-    lines.extend(_velocity_repo_line(row) for row in _sorted_desc(active, lambda row: _int(row, "prs_merged")))
-    return lines
+def _quality_parts(repo: RepoWindows, window_days: int) -> List[str]:
+    parts = ["new issues " + _both(repo, _new_issues)]
+    if _has_failed_column(repo.window):
+        parts.append("QA failed " + _both(repo, qa_failed_count) + _qa_failed_breakdown(repo.window, window_days))
+    return parts
 
 
-# ---------- 2. Quality ----------
-
-def _failed_text(failed: Optional[int], tested: Optional[int]) -> str:
-    if failed is None:
-        return "no QA Failed column"
-    share = percent(failed, tested)
-    return "QA failed {} of {} tested{}".format(failed, _show(tested), " ({}%)".format(share) if share is not None else "")
-
-
-def _failed_prev_text(failed: Optional[int], tested: Optional[int]) -> str:
-    return "prev {} of {}".format(failed, _show(tested)) if failed is not None else ""
-
-
-def _quality_repo_line(row: Row) -> str:
-    parts = ["{} (prev {})".format(_plural(_int(row, "issues_created"), "new issue"), _int(row, "issues_created_prev"))]
-    if _has_qa_board(row):
-        failed_prev = _failed_prev_text(_optional(row, "issues_qa_failed_prev"), _optional(row, "issues_qa_tested_prev"))
-        failed = _failed_text(_optional(row, "issues_qa_failed"), _optional(row, "issues_qa_tested"))
-        parts.append(failed + (" ({})".format(failed_prev) if failed_prev else ""))
-    return "• *{}* — {}".format(_name(row), INLINE_SEPARATOR.join(parts))
-
-
-def build_quality_section(rows: List[Row]) -> List[str]:
-    created = _total(rows, "issues_created")
-    created_prev = _total(rows, "issues_created_prev")
-    failed = _total_optional(rows, "issues_qa_failed")
-    failed_prev = _total_optional(rows, "issues_qa_failed_prev")
-    with_failed_column = [row for row in rows if _optional(row, "issues_qa_failed") is not None]
-    tested = _total_optional(with_failed_column, "issues_qa_tested")
-    tested_prev = _total_optional(with_failed_column, "issues_qa_tested_prev")
-    header = "*2. Quality* — {} (prev {}, {}), {} labelled bug{}{}".format(
-        _plural(created, "new issue"), created_prev, trend_label(created, created_prev), _total(rows, "bugs_created"),
-        INLINE_SEPARATOR, _failed_text(failed, tested),
+def build_quality_section(repos: List[RepoWindows], window_days: int) -> List[str]:
+    with_failed = [repo for repo in repos if _has_failed_column(repo.window)]
+    window_totals = {key: sum_optional(_optional(repo.window, key) for repo in with_failed) for key in QA_FAILED_KEYS}
+    header = "*3. New issues vs QA failed* — new issues {}{}QA failed {}{}".format(
+        _total_both(repos, _new_issues), INLINE_SEPARATOR,
+        _total_both(with_failed, qa_failed_count), _qa_failed_breakdown(window_totals, window_days),
     )
-    failed_prev_text = _failed_prev_text(failed_prev, tested_prev)
-    lines = [header + (" ({})".format(failed_prev_text) if failed_prev_text else "")]
-    active = [row for row in rows if _int(row, "issues_created") or _int(row, "issues_created_prev") or _int(row, "issues_qa_tested")]
-    lines.extend(_quality_repo_line(row) for row in _sorted_desc(active, lambda row: _int(row, "issues_created")))
-    return lines
+    active = [repo for repo in repos if _is_active(repo, [_new_issues, qa_failed_count])]
+    return [header] + [_repo_line(repo, _quality_parts(repo, window_days)) for repo in active]
 
 
-# ---------- 3. QA backlog ----------
+# ---------- 4. QA backlog ----------
 
 def _backlog_issue_link(entry: BacklogEntry) -> str:
     label = "#{}".format(entry.number) if entry.number is not None else "?"
@@ -191,18 +263,22 @@ def _backlog_issue_link(entry: BacklogEntry) -> str:
     return "[{}]({}) {}".format(label, entry.url, age) if entry.url else "{} {}".format(label, age)
 
 
-def _backlog_repo_line(row: Row) -> str:
-    oldest = (row.get("qa_backlog") or [])[:BACKLOG_OLDEST_SHOWN]
-    median = _optional(row, "qa_backlog_median_days")
-    parts = [
-        "{} waiting ({} vs {}d ago)".format(
-            _int(row, "issues_ready_for_qa"),
-            trend_label(_optional(row, "issues_ready_for_qa"), _optional(row, "ready_for_qa_{}d_ago".format(BACKLOG_TREND_DAYS))),
-            BACKLOG_TREND_DAYS,
-        ),
+def _backlog_trend(waiting: Optional[int], row: Row) -> str:
+    """"(↓2 vs 24h ago, ↑5 vs 7d ago)" for the Ready for QA count."""
+    trends = [
+        "{} vs {}".format(trend_label(waiting, _optional(row, "ready_for_qa_{}d_ago".format(days))), label)
+        for days, label in BACKLOG_TRENDS
     ]
+    return "({})".format(", ".join(trends))
+
+
+def _backlog_repo_line(row: Row) -> str:
+    waiting = _optional(row, "issues_ready_for_qa")
+    parts = ["{} waiting {}".format(_show(waiting), _backlog_trend(waiting, row))]
+    median = _optional(row, "qa_backlog_median_days")
     if median is not None:
         parts.append("median wait {}d".format(median))
+    oldest = (row.get("qa_backlog") or [])[:BACKLOG_OLDEST_SHOWN]
     if oldest:
         parts.append("oldest " + ", ".join(_backlog_issue_link(entry) for entry in oldest))
     return "• *{}* — {}".format(_name(row), INLINE_SEPARATOR.join(parts))
@@ -212,13 +288,13 @@ def build_backlog_section(rows: List[Row]) -> List[str]:
     boards = [row for row in rows if _has_qa_board(row)]
     if not boards:
         return []
-    waiting = _total_optional(boards, "issues_ready_for_qa")
-    week_ago = _total_optional(boards, "ready_for_qa_{}d_ago".format(BACKLOG_TREND_DAYS))
+    totals = {key: sum_optional(_optional(row, key) for row in boards) for key in BACKLOG_KEYS}
+    waiting = totals["issues_ready_for_qa"]
     oldest = max((_int(row, "qa_backlog_oldest_days") for row in boards), default=0)
-    lines = ["*3. QA backlog* — {} in Ready for QA ({} vs {}d ago){}oldest waiting {}d".format(
-        _plural(waiting or 0, "issue"), trend_label(waiting, week_ago), BACKLOG_TREND_DAYS, INLINE_SEPARATOR, oldest
+    lines = ["*4. QA backlog* — {} waiting in Ready for QA {}{}oldest waiting {}d".format(
+        _show(waiting), _backlog_trend(waiting, totals), INLINE_SEPARATOR, oldest
     )]
-    lines.extend(_backlog_repo_line(row) for row in _sorted_desc(boards, lambda row: _int(row, "qa_backlog_oldest_days")))
+    lines.extend(_backlog_repo_line(row) for row in boards)
     return lines
 
 
@@ -238,17 +314,28 @@ def build_release_appendix(rows: List[Row]) -> List[str]:
     return ["_Appendix — days since last release:_ " + INLINE_SEPARATOR.join(_release_text(row) for row in ordered)]
 
 
-def build_daily_message(rows: List[Row], window_days: int = DEFAULT_WINDOW_DAYS) -> str:
-    """The Cliq message for one window, from repo_summary rows (one per repo)."""
-    lines: List[str] = [
-        "📊 *Dev report* — " + _local_now().strftime("%a, %d %b %Y"),
-        "_Last {0} days; \"prev\" is the {0} days before that._".format(window_days),
+def build_legend(window_days: int) -> List[str]:
+    return [
+        "_Each figure is *last 24 hours / last {} days*._".format(window_days),
+        "_Key: *merged* = PRs merged · *to QA* = issues devs moved to Ready for QA · "
+        "*tested* = fixes QA finished re-testing, split into *passed* and *failed* · "
+        "*new issues* = issues filed by anyone, not counting bugs QA found · "
+        "*QA failed* = fixes that failed re-test plus bugs QA found and filed straight into QA Failed · "
+        "*waiting* = issues in Ready for QA now._",
     ]
+
+
+def build_daily_message(day_rows: List[Row], window_rows: List[Row], window_days: int = DEFAULT_WINDOW_DAYS) -> str:
+    """The Cliq message from repo_summary rows (one per repo) for the last 24 hours and the longer window."""
+    repos = pair_rows(day_rows, window_rows)
+    lines: List[str] = ["📊 *Dev report* — " + _local_now().strftime("%a, %d %b %Y")]
+    lines.extend(build_legend(window_days))
     for block in (
-        build_velocity_section(rows),
-        build_quality_section(rows),
-        build_backlog_section(rows),
-        build_release_appendix(rows),
+        build_velocity_section(repos),
+        build_qa_velocity_section(repos),
+        build_quality_section(repos, window_days),
+        build_backlog_section(window_rows),
+        build_release_appendix(window_rows),
     ):
         if block:
             lines.append("")
@@ -301,28 +388,32 @@ def post_to_cliq(text: str, channel: Optional[str] = None) -> bool:
 def send_daily_update(
     inputs: Optional["SummaryInputs"] = None,
     days: int = DEFAULT_WINDOW_DAYS,
-    precomputed: Optional[List[Row]] = None,
+    precomputed: Optional[Dict[int, List[Row]]] = None,
     dry_run: bool = False,
     backlog_csv: Optional[str] = None,
 ) -> str:
     """
-    Build and send the Cliq report for the last `days` days.
+    Build and send the Cliq report for the last 24 hours and the last `days` days.
 
     If inputs is None, fetches them via repo_summary (needs GH_API_READ_TOKEN).
-    `precomputed` is an already-generated repo_summary report for `days`, so
-    callers (e.g. repo_summary.main) can avoid recomputing it.
+    `precomputed` maps a window length in days to an already-generated
+    repo_summary report, so callers (e.g. repo_summary.main) can avoid
+    recomputing it; any window missing from it is generated here.
     Returns the message text (also useful for dry runs).
     """
     # Lazy import to avoid a hard import cycle with repo_summary.
     from repo_summary import collect_inputs, generate_report, write_backlog_csv
 
-    rows = precomputed
-    if rows is None:
-        rows = generate_report(days, inputs or collect_inputs([days]))
+    windows = [DAY_WINDOW_DAYS, days]
+    reports = dict(precomputed or {})
+    missing = [window for window in windows if window not in reports]
+    if missing:
+        inputs = inputs or collect_inputs(windows)
+        reports.update({window: generate_report(window, inputs) for window in missing})
     if backlog_csv:
-        write_backlog_csv(rows, backlog_csv)
+        write_backlog_csv(reports[days], backlog_csv)
 
-    message = build_daily_message(rows, days)
+    message = build_daily_message(reports[DAY_WINDOW_DAYS], reports[days], days)
     if dry_run:
         print(message)
         return message
